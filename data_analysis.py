@@ -5,19 +5,21 @@
 import os
 import time
 
-import matplotlib
-matplotlib.use('WXAgg')
+# import matplotlib
+# matplotlib.use('WXAgg')
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy as sp
+import seaborn as sns
 from matplotlib import axes
 from pptx import Presentation
 from pptx.util import Inches
 from scipy import constants
 
 import reportgenlib as rgl
+import gooey
 from gooey import Gooey, GooeyParser
 
 # Bind subplot formatting methods in reportgenlib to the matplotlib.axes.Axes
@@ -26,28 +28,19 @@ axes.Axes.set_axes_props = rgl.set_axes_props
 axes.Axes.subboxplot = rgl.subboxplot
 axes.Axes.subbarchart = rgl.subbarchart
 
+# get paths to gooey files
+gooey_root = os.path.dirname(gooey.__file__)
+gooey_images = (os.path.join(gooey_root, 'images/report'))
+print(gooey_images)
 
-# Parse folder path and log file name from command line arguments.
-# Remember to include the "python" keyword before the call to the python file
-# from the command line, e.g. python example.py "arg1" "arg2". Folder paths
-# must use forward slashes to separate subfolders.
-# def parse():
-#     """Parse command line arguments"""
-#     parser = argparse.ArgumentParser(description='Process data files')
-#     parser.add_argument(
-#         'log_file_path',
-#         metavar='log_file_path',
-#         type=str,
-#         help='Absolute path to the log file')
-#     args = parser.parse_args()
-#     return args
-@Gooey(image_dir='C:/Users/ball/AppData/Local/Continuum/anaconda3/envs/gooey-test/Lib/site-packages/gooey/images/report',
+# create Gooey parser
+@Gooey(image_dir=gooey_images,
        program_name='Data Analysis')
 def parse():
     """Parse command line arguments to Gooey GUI"""
+
     desc = "Analyse solar simulator data and generate a report"
     file_help_msg = "Absolute path to the log file located in the same folder as the measurement data"
-
     parser = GooeyParser(description=desc)
     parser.add_argument(
         "log_filepath",
@@ -106,11 +99,11 @@ data = pd.read_csv(
 num_cols = len(data.columns)
 
 if num_cols == 13:
-    names = ['Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo/PCE', 'Label', 'Variable', 'Value', 'Pixel', 'File_Path']
+    names = ['Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo-PCE', 'Label', 'Variable', 'Value', 'Pixel', 'File_Path']
 elif num_cols == 14:
-    names = ['Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo/PCE', 'Label', 'Variable', 'Value', 'Pixel', 'Intensity', 'File_Path']
+    names = ['Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo-PCE', 'Label', 'Variable', 'Value', 'Pixel', 'Intensity', 'File_Path']
 elif num_cols == 15:
-    names = ['Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo/PCE', 'Label', 'Variable', 'Value', 'Pixel', 'Intensity', 'Assumed_Eg', 'File_Path']
+    names = ['Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo-PCE', 'Label', 'Variable', 'Value', 'Pixel', 'Intensity', 'Assumed_Eg', 'File_Path']
 else:
     raise ValueError(f'expected 13, 14, or 15 columns in log file but received {num_cols}')
 
@@ -264,9 +257,12 @@ filtered_data_LH = sorted_data[(sorted_data.Condition == 'Light')
                                (sorted_data.FF_int < 0.9) &
                                (np.absolute(sorted_data.Jsc_int) > 0.01) &
                                (sorted_data.Scan_direction == 'LH')]
-filtered_data = filtered_data.drop_duplicates(['Label', 'Pixel'])
+# filtered_data = filtered_data.drop_duplicates(['Label', 'Pixel'])
+filtered_data = filtered_data.drop_duplicates(['Label', 'Pixel', 'Scan_direction'])
 filtered_data_HL = filtered_data_HL.drop_duplicates(['Label', 'Pixel'])
 filtered_data_LH = filtered_data_LH.drop_duplicates(['Label', 'Pixel'])
+
+spo_data = data[(data.Condition == 'SPO')]
 
 # Drop pixels only working in one scan direction.
 # First get the inner merge of the Label and Pixel columns, i.e. drop rows
@@ -293,142 +289,232 @@ group_var_f = filtered_data_HL.drop_duplicates(['Label', 'Pixel'])
 group_var_f = group_var_f.groupby(['Variable'])
 print('Done')
 
-# For each variable, if there are any working pixels for that variable
-# calculate the yield for each value of the variable if there are any working
-# pixels for that value. Else add zeros. Also, make a list of names
-# for each variable to use as the x-axis on bar charts.
-print('Calculating yields...', end='', flush=True)
-yields_var = []
-names_yield_var = []
-for var_key in list(group_var_s.groups.keys()):
-    group_val_s = group_var_s.get_group(var_key).groupby(['Value'])
-    if var_key in list(group_var_f.groups.keys()):
-        group_val_f = group_var_f.get_group(var_key).groupby(['Value'])
-        yields_val = []
-        names_yield_val = []
-        for val_key in list(group_val_s.groups.keys()):
-            names_yield_val.append(val_key)
-            if val_key in list(group_val_f.groups.keys()):
-                yields_val.append(
-                    len(group_val_f.get_group(val_key)) * 100 / len(
-                        group_val_s.get_group(val_key)))
-            else:
-                yields_val.append(0)
-        yields_var.append(yields_val)
-        names_yield_var.append(names_yield_val)
-    else:
-        yields_var.append([0] * len(group_val_s))
-        names_yield_var.append(list(group_val_s.groups.keys()))
+# # For each variable, if there are any working pixels for that variable
+# # calculate the yield for each value of the variable if there are any working
+# # pixels for that value. Else add zeros. Also, make a list of names
+# # for each variable to use as the x-axis on bar charts.
+# print('Calculating yields...', end='', flush=True)
+# yields_var = []
+# names_yield_var = []
+# for var_key in list(group_var_s.groups.keys()):
+#     group_val_s = group_var_s.get_group(var_key).groupby(['Value'])
+#     if var_key in list(group_var_f.groups.keys()):
+#         group_val_f = group_var_f.get_group(var_key).groupby(['Value'])
+#         yields_val = []
+#         names_yield_val = []
+#         for val_key in list(group_val_s.groups.keys()):
+#             names_yield_val.append(val_key)
+#             if val_key in list(group_val_f.groups.keys()):
+#                 yields_val.append(
+#                     len(group_val_f.get_group(val_key)) * 100 / len(
+#                         group_val_s.get_group(val_key)))
+#             else:
+#                 yields_val.append(0)
+#         yields_var.append(yields_val)
+#         names_yield_var.append(names_yield_val)
+#     else:
+#         yields_var.append([0] * len(group_val_s))
+#         names_yield_var.append(list(group_val_s.groups.keys()))
 
-# For each variable, if there are any working pixels for that variable
-# calculate the yield for each label if there are any working
-# pixels for that label. Else add zeros. Also, make a list of names
-# for each variable to use as the x-axis on bar charts.
-yields_var_lab = []
-names_yield_var_lab = []
-for var_key in list(group_var_s.groups.keys()):
-    group_lab_s = group_var_s.get_group(var_key).groupby(['Label'])
-    if var_key in list(group_var_f.groups.keys()):
-        group_lab_f = group_var_f.get_group(var_key).groupby(['Label'])
-        yields_lab = []
-        names_yield_lab = []
-        for lab_key in list(group_lab_s.groups.keys()):
-            names_yield_lab.append(lab_key)
-            if lab_key in list(group_lab_f.groups.keys()):
-                yields_lab.append(
-                    len(group_lab_f.get_group(lab_key)) * 100 / 8)
-            else:
-                yields_lab.append(0)
-        yields_var_lab.append(yields_lab)
-        names_yield_var_lab.append(names_yield_lab)
-    else:
-        yields_var_lab.append([0] * len(group_lab_s))
-        names_yield_var_lab.append(list(group_lab_s.groups.keys()))
-print('Done')
+# # For each variable, if there are any working pixels for that variable
+# # calculate the yield for each label if there are any working
+# # pixels for that label. Else add zeros. Also, make a list of names
+# # for each variable to use as the x-axis on bar charts.
+# yields_var_lab = []
+# names_yield_var_lab = []
+# for var_key in list(group_var_s.groups.keys()):
+#     group_lab_s = group_var_s.get_group(var_key).groupby(['Label'])
+#     if var_key in list(group_var_f.groups.keys()):
+#         group_lab_f = group_var_f.get_group(var_key).groupby(['Label'])
+#         yields_lab = []
+#         names_yield_lab = []
+#         for lab_key in list(group_lab_s.groups.keys()):
+#             names_yield_lab.append(lab_key)
+#             if lab_key in list(group_lab_f.groups.keys()):
+#                 yields_lab.append(
+#                     len(group_lab_f.get_group(lab_key)) * 100 / 8)
+#             else:
+#                 yields_lab.append(0)
+#         yields_var_lab.append(yields_lab)
+#         names_yield_var_lab.append(names_yield_lab)
+#     else:
+#         yields_var_lab.append([0] * len(group_lab_s))
+#         names_yield_var_lab.append(list(group_lab_s.groups.keys()))
+# print('Done')
 
-# To generate box plots the data needs to be grouped first by variable
-grouped_by_var_HL = filtered_data_HL.groupby('Variable')
-grouped_by_var_LH = filtered_data_LH.groupby('Variable')
+# # To generate box plots the data needs to be grouped first by variable
+# grouped_by_var_HL = filtered_data_HL.groupby('Variable')
+# grouped_by_var_LH = filtered_data_LH.groupby('Variable')
 
-# Then it needs to be grouped by variable value. Each of these groupings is
-# appended to a list that is iterated upon later to generate the plots.
-# Create variables holding a dictionary for accessing lists of data for
-# boxplots.
-boxplotdata_HL = rgl.boxplotdata(grouped_by_var_HL)
-boxplotdata_LH = rgl.boxplotdata(grouped_by_var_LH)
-
-# Iterate through the lists of grouped data to produce boxplots. Each plot
-# will contain all data from all values of a variable including a 'Control'
-# sample if one is given. Multiple plots are created if there is more than
-# one variable.
 print('Plotting boxplots and barcharts...', end='', flush=True)
-for i in range(len(boxplotdata_HL['var_names'])):
-    if boxplotdata_HL['var_names'][i] != 'Control':
-        for j in range(len(boxplotdata_HL['names_var'])):
-            if boxplotdata_HL['names_var'][j][0] == 'Control':
-                boxplotdata_HL['names_var'][i].append(
-                    boxplotdata_HL['names_var'][j][0])
-                boxplotdata_HL['Jsc_var'][i].append(
-                    boxplotdata_HL['Jsc_var'][j][0])
-                boxplotdata_HL['Voc_var'][i].append(
-                    boxplotdata_HL['Voc_var'][j][0])
-                boxplotdata_HL['FF_var'][i].append(
-                    boxplotdata_HL['FF_var'][j][0])
-                boxplotdata_HL['PCE_var'][i].append(
-                    boxplotdata_HL['PCE_var'][j][0])
-                boxplotdata_HL['Rs_var'][i].append(
-                    boxplotdata_HL['Rs_var'][j][0])
-                boxplotdata_HL['Rsh_var'][i].append(
-                    boxplotdata_HL['Rsh_var'][j][0])
+# create boxplots for jv parameters
+jv_params = ['Jsc_int', 'Voc_int', 'FF_int', 'PCE_int', 'Vmp_int', 'Jmp_int', 'Rs_grad', 'Rsh_grad']
+for ix, p in enumerate(jv_params):
+    # create a new slide for every 4 plots
+    if ix % 4 == 0:
+        data_slide = rgl.title_image_slide(prs, f'J-V Parameters, page {int(ix / 4)}')
 
-        # Build a list of x values for scatter plots that will overlay
-        # boxplots.
-        x = []
-        for k in range(1, 1 + len(boxplotdata_HL['names_var'][i])):
-            x.extend([k] * len(boxplotdata_HL['Jsc_var'][i][k - 1]))
+    # create boxplot
+    fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
+    sns.boxplot(x=filtered_data['Label'], y=np.absolute(filtered_data[p]), hue=filtered_data['Scan_direction'], palette='deep', linewidth=0.5, ax=ax, showfliers=False)
+    sns.swarmplot(x=filtered_data['Label'], y=np.absolute(filtered_data[p]), hue=filtered_data['Scan_direction'], palette='muted', size=3, linewidth=0.5, edgecolor='gray', dodge=True, ax=ax)
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles[:2], labels[:2], fontsize='xx-small')
+    ax.set_xticklabels(ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
+    ax.set_xlabel('')
+    if p in ['Jsc_int', 'Voc_int', 'PCE_int', 'Vmp_int', 'Jmp_int']:
+        ax.set_ylim(0)
+        if p == 'Jsc_int':
+            ax.set_ylabel('Jsc (mA/cm^2)')
+        elif p == 'Voc_int':
+            ax.set_ylabel('Voc (V)')
+        elif p == 'PCE_int':
+            ax.set_ylabel('PCE (%)')
+        elif p == 'Vmp_int':
+            ax.set_ylabel('Vmp (V)')
+        elif p == 'Jmp_int':
+            ax.set_ylabel('Jmp (mA/cm^2)')
+    elif p == 'FF_int':
+        ax.set_ylim((0, 1))
+        ax.set_ylabel('FF')
+    elif p in ['Rs_grad', 'Rsh_grad']:
+        ax.set_yscale('log')
+        if p == 'Rs_grad':
+            ax.set_ylabel('Rs (ohms)')
+        elif p == 'Rsh_grad':
+            ax.set_ylabel('Rsh (ohms)')
+    fig.tight_layout()
 
-        # Create new slide and box plots for PV parameters, save figures,
-        # and add them to the new slide
-        data_slide = rgl.title_image_slide(
-            prs, boxplotdata_HL['var_names'][i] + ' basic parameters')
-        params = ['Jsc', 'Voc', 'FF', 'PCE']
-        for ix, p in enumerate(params):
-            image_path = image_folder + 'boxplot_' + p + '.png'
-            rgl.create_save_boxplot(p, boxplotdata_HL, boxplotdata_LH, i, x,
-                                    image_path)
-            data_slide.shapes.add_picture(
-                image_path,
-                left=lefts[str(ix)],
-                top=tops[str(ix)],
-                height=height)
+    # save figure and add to powerpoint
+    image_path = f'{image_folder}boxplot_{p}.png'
+    fig.savefig(image_path)
+    data_slide.shapes.add_picture(image_path, left=lefts[str(ix % 4)], top=tops[str(ix % 4)], height=height)
 
-        # Create new slide, box plots, and bar charts for parameters, save
-        # figures and add them to the new slide
-        data_slide = rgl.title_image_slide(
-            prs, boxplotdata_HL['var_names'][i] +
-            ' series and shunt resistances; yields')
-        params = ['Rs', 'Rsh', 'yields_var', 'yields_var_lab']
-        for ix, p in enumerate(params):
-            if p.find('yield') == -1:
-                image_path = image_folder + 'boxplot_' + p + '.png'
-                rgl.create_save_boxplot(p, boxplotdata_HL, boxplotdata_LH, i,
-                                        x, image_path)
-            elif p == 'yields_var':
-                image_path = image_folder + 'barchart_' + p + '.png'
-                rgl.create_save_barchart(yields_var, names_yield_var, i,
-                                         image_path)
-            elif p == 'yields_var_lab':
-                image_path = image_folder + 'barchart_' + p + '.png'
-                rgl.create_save_barchart(yields_var_lab, names_yield_var_lab,
-                                         i, image_path)
-            data_slide.shapes.add_picture(
-                image_path,
-                left=lefts[str(ix)],
-                top=tops[str(ix)],
-                height=height)
+# create boxplots for spo parameters
+spo_params = ['Jspo', 'PCEspo', 'PCEspo-PCE']
+for ix, p in enumerate(spo_params):
+    # create a new slide
+    if ix % 4 == 0:
+        data_slide = rgl.title_image_slide(prs, f'SPO Parameters')
 
-# Clear all figures from memory
-plt.close('all')
+    # create boxplot
+    fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
+    sns.boxplot(x=spo_data['Label'], y=np.absolute(spo_data[p]), palette='deep', linewidth=0.5, ax=ax, showfliers=False)
+    sns.swarmplot(x=spo_data['Label'], y=np.absolute(spo_data[p]), palette='muted', size=3, linewidth=0.5, edgecolor='gray', dodge=True, ax=ax)
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles[:2], labels[:2], fontsize='xx-small')
+    ax.set_xticklabels(ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
+    ax.set_xlabel('')
+    if p == 'Jspo':
+        ax.set_ylabel('Jspo (mA/cm^2)')
+    elif p == 'PCEspo':
+        ax.set_ylabel('PCEspo (%)')
+    ax.set_ylim(0)
+    fig.tight_layout()
+
+    # save figure and add to powerpoint
+    image_path = f'{image_folder}boxplot_{p}.png'
+    fig.savefig(image_path)
+    data_slide.shapes.add_picture(image_path, left=lefts[str(ix)], top=tops[str(ix)], height=height)
+
+# create countplot for yields
+# create new slide
+data_slide = rgl.title_image_slide(prs, f'Yields')
+
+# create countplot
+fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
+sns.countplot(x=filtered_data['Label'], data=filtered_data, hue=filtered_data['Scan_direction'], linewidth=0.5, palette='deep', edgecolor='black', ax=ax)
+handles, labels = ax.get_legend_handles_labels()
+ax.legend(handles[:2], labels[:2], fontsize='xx-small')
+ax.set_xticklabels(ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
+ax.set_xlabel('')
+ax.set_ylabel('Number of working pixels')
+
+# save figure and add to powerpoint
+image_path = f'{image_folder}boxchart_yields.png'
+fig.savefig(image_path)
+data_slide.shapes.add_picture(image_path, left=lefts[str(0)], top=tops[str(0)], height=height)
+
+
+# # Then it needs to be grouped by variable value. Each of these groupings is
+# # appended to a list that is iterated upon later to generate the plots.
+# # Create variables holding a dictionary for accessing lists of data for
+# # boxplots.
+# boxplotdata_HL = rgl.boxplotdata(grouped_by_var_HL)
+# boxplotdata_LH = rgl.boxplotdata(grouped_by_var_LH)
+#
+# # Iterate through the lists of grouped data to produce boxplots. Each plot
+# # will contain all data from all values of a variable including a 'Control'
+# # sample if one is given. Multiple plots are created if there is more than
+# # one variable.
+# print('Plotting boxplots and barcharts...', end='', flush=True)
+# for i in range(len(boxplotdata_HL['var_names'])):
+#     if boxplotdata_HL['var_names'][i] != 'Control':
+#         for j in range(len(boxplotdata_HL['names_var'])):
+#             if boxplotdata_HL['names_var'][j][0] == 'Control':
+#                 boxplotdata_HL['names_var'][i].append(
+#                     boxplotdata_HL['names_var'][j][0])
+#                 boxplotdata_HL['Jsc_var'][i].append(
+#                     boxplotdata_HL['Jsc_var'][j][0])
+#                 boxplotdata_HL['Voc_var'][i].append(
+#                     boxplotdata_HL['Voc_var'][j][0])
+#                 boxplotdata_HL['FF_var'][i].append(
+#                     boxplotdata_HL['FF_var'][j][0])
+#                 boxplotdata_HL['PCE_var'][i].append(
+#                     boxplotdata_HL['PCE_var'][j][0])
+#                 boxplotdata_HL['Rs_var'][i].append(
+#                     boxplotdata_HL['Rs_var'][j][0])
+#                 boxplotdata_HL['Rsh_var'][i].append(
+#                     boxplotdata_HL['Rsh_var'][j][0])
+#
+#         # Build a list of x values for scatter plots that will overlay
+#         # boxplots.
+#         x = []
+#         for k in range(1, 1 + len(boxplotdata_HL['names_var'][i])):
+#             x.extend([k] * len(boxplotdata_HL['Jsc_var'][i][k - 1]))
+#
+#         # Create new slide and box plots for PV parameters, save figures,
+#         # and add them to the new slide
+#         data_slide = rgl.title_image_slide(
+#             prs, boxplotdata_HL['var_names'][i] + ' basic parameters')
+#         params = ['Jsc', 'Voc', 'FF', 'PCE']
+#         for ix, p in enumerate(params):
+#             image_path = image_folder + 'boxplot_' + p + '.png'
+#             rgl.create_save_boxplot(p, boxplotdata_HL, boxplotdata_LH, i, x,
+#                                     image_path)
+#             data_slide.shapes.add_picture(
+#                 image_path,
+#                 left=lefts[str(ix)],
+#                 top=tops[str(ix)],
+#                 height=height)
+#
+#         # Create new slide, box plots, and bar charts for parameters, save
+#         # figures and add them to the new slide
+#         data_slide = rgl.title_image_slide(
+#             prs, boxplotdata_HL['var_names'][i] +
+#             ' series and shunt resistances; yields')
+#         params = ['Rs', 'Rsh', 'yields_var', 'yields_var_lab']
+#         for ix, p in enumerate(params):
+#             if p.find('yield') == -1:
+#                 image_path = image_folder + 'boxplot_' + p + '.png'
+#                 rgl.create_save_boxplot(p, boxplotdata_HL, boxplotdata_LH, i,
+#                                         x, image_path)
+#             elif p == 'yields_var':
+#                 image_path = image_folder + 'barchart_' + p + '.png'
+#                 rgl.create_save_barchart(yields_var, names_yield_var, i,
+#                                          image_path)
+#             elif p == 'yields_var_lab':
+#                 image_path = image_folder + 'barchart_' + p + '.png'
+#                 rgl.create_save_barchart(yields_var_lab, names_yield_var_lab,
+#                                          i, image_path)
+#             data_slide.shapes.add_picture(
+#                 image_path,
+#                 left=lefts[str(ix)],
+#                 top=tops[str(ix)],
+#                 height=height)
+#
+# # Clear all figures from memory
+# plt.close('all')
 print('Done')
 
 # Group data by label and sort ready to plot graph of all pixels per substrate
@@ -755,9 +841,8 @@ print('Done')
 # Build a max power stabilisation log dataframe from file paths and J-V log
 # file.
 print('Plotting stabilisation data...', end='', flush=True)
-spo_df = data[(data.Condition == 'SPO')]
 i = 0
-for index, row in spo_df.iterrows():
+for index, row in spo_data.iterrows():
     # Get label, variable, value, and pixel for title and image path
     label = row['Label']
     variable = row['Variable']
