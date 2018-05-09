@@ -18,9 +18,10 @@ from pptx import Presentation
 from pptx.util import Inches
 from scipy import constants
 
+# import gooey
 import reportgenlib as rgl
-import gooey
 from gooey import Gooey, GooeyParser
+
 
 # Bind subplot formatting methods in reportgenlib to the matplotlib.axes.Axes
 # class.
@@ -28,14 +29,16 @@ axes.Axes.set_axes_props = rgl.set_axes_props
 axes.Axes.subboxplot = rgl.subboxplot
 axes.Axes.subbarchart = rgl.subbarchart
 
-# get paths to gooey files
-gooey_root = os.path.dirname(gooey.__file__)
-gooey_images = (os.path.join(gooey_root, 'images/report'))
-print(gooey_images)
+# # get paths to gooey files
+# gooey_root = os.path.dirname(gooey.__file__)
+# gooey_images = (os.path.join(gooey_root, 'images/report'))
+# print(gooey_images)
 
-# create Gooey parser
-@Gooey(image_dir=gooey_images,
-       program_name='Data Analysis')
+
+# # create Gooey parser
+# @Gooey(image_dir=gooey_images,
+#        program_name='Data Analysis')
+@Gooey(program_name='Data Analysis')
 def parse():
     """Parse command line arguments to Gooey GUI"""
 
@@ -90,22 +93,29 @@ T = 300
 
 # Read in data from JV log file
 print('Loading log file...', end='', flush=True)
-data = pd.read_csv(
-    log_filepath,
-    delimiter='\t',
-    header=None
-    )
+data = pd.read_csv(log_filepath, delimiter='\t', header=None)
 
 num_cols = len(data.columns)
 
 if num_cols == 13:
-    names = ['Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo-PCE', 'Label', 'Variable', 'Value', 'Pixel', 'File_Path']
+    names = [
+        'Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo-PCE',
+        'Label', 'Variable', 'Value', 'Pixel', 'File_Path'
+    ]
 elif num_cols == 14:
-    names = ['Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo-PCE', 'Label', 'Variable', 'Value', 'Pixel', 'Intensity', 'File_Path']
+    names = [
+        'Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo-PCE',
+        'Label', 'Variable', 'Value', 'Pixel', 'Intensity', 'File_Path'
+    ]
 elif num_cols == 15:
-    names = ['Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo-PCE', 'Label', 'Variable', 'Value', 'Pixel', 'Intensity', 'Assumed_Eg', 'File_Path']
+    names = [
+        'Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo-PCE',
+        'Label', 'Variable', 'Value', 'Pixel', 'Intensity', 'Assumed_Eg',
+        'File_Path'
+    ]
 else:
-    raise ValueError(f'expected 13, 14, or 15 columns in log file but received {num_cols}')
+    raise ValueError(
+        f'expected 13, 14, or 15 columns in log file but received {num_cols}')
 
 data.columns = names
 print('Done')
@@ -258,7 +268,8 @@ filtered_data_LH = sorted_data[(sorted_data.Condition == 'Light')
                                (np.absolute(sorted_data.Jsc_int) > 0.01) &
                                (sorted_data.Scan_direction == 'LH')]
 # filtered_data = filtered_data.drop_duplicates(['Label', 'Pixel'])
-filtered_data = filtered_data.drop_duplicates(['Label', 'Pixel', 'Scan_direction'])
+filtered_data = filtered_data.drop_duplicates(
+    ['Label', 'Pixel', 'Scan_direction'])
 filtered_data_HL = filtered_data_HL.drop_duplicates(['Label', 'Pixel'])
 filtered_data_LH = filtered_data_LH.drop_duplicates(['Label', 'Pixel'])
 
@@ -348,19 +359,40 @@ print('Done')
 
 print('Plotting boxplots and barcharts...', end='', flush=True)
 # create boxplots for jv parameters
-jv_params = ['Jsc_int', 'Voc_int', 'FF_int', 'PCE_int', 'Vmp_int', 'Jmp_int', 'Rs_grad', 'Rsh_grad']
+jv_params = [
+    'Jsc_int', 'Voc_int', 'FF_int', 'PCE_int', 'Vmp_int', 'Jmp_int', 'Rs_grad',
+    'Rsh_grad'
+]
 for ix, p in enumerate(jv_params):
     # create a new slide for every 4 plots
     if ix % 4 == 0:
-        data_slide = rgl.title_image_slide(prs, f'J-V Parameters, page {int(ix / 4)}')
+        data_slide = rgl.title_image_slide(
+            prs, f'J-V Parameters, page {int(ix / 4)}')
 
     # create boxplot
     fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
-    sns.boxplot(x=filtered_data['Label'], y=np.absolute(filtered_data[p]), hue=filtered_data['Scan_direction'], palette='deep', linewidth=0.5, ax=ax, showfliers=False)
-    sns.swarmplot(x=filtered_data['Label'], y=np.absolute(filtered_data[p]), hue=filtered_data['Scan_direction'], palette='muted', size=3, linewidth=0.5, edgecolor='gray', dodge=True, ax=ax)
+    sns.boxplot(
+        x=filtered_data['Label'],
+        y=np.absolute(filtered_data[p]),
+        hue=filtered_data['Scan_direction'],
+        palette='deep',
+        linewidth=0.5,
+        ax=ax,
+        showfliers=False)
+    sns.swarmplot(
+        x=filtered_data['Label'],
+        y=np.absolute(filtered_data[p]),
+        hue=filtered_data['Scan_direction'],
+        palette='muted',
+        size=3,
+        linewidth=0.5,
+        edgecolor='gray',
+        dodge=True,
+        ax=ax)
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles[:2], labels[:2], fontsize='xx-small')
-    ax.set_xticklabels(ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
+    ax.set_xticklabels(
+        ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
     ax.set_xlabel('')
     if p in ['Jsc_int', 'Voc_int', 'PCE_int', 'Vmp_int', 'Jmp_int']:
         ax.set_ylim(0)
@@ -388,7 +420,11 @@ for ix, p in enumerate(jv_params):
     # save figure and add to powerpoint
     image_path = f'{image_folder}boxplot_{p}.png'
     fig.savefig(image_path)
-    data_slide.shapes.add_picture(image_path, left=lefts[str(ix % 4)], top=tops[str(ix % 4)], height=height)
+    data_slide.shapes.add_picture(
+        image_path,
+        left=lefts[str(ix % 4)],
+        top=tops[str(ix % 4)],
+        height=height)
 
 # create boxplots for spo parameters
 spo_params = ['Jspo', 'PCEspo', 'PCEspo-PCE']
@@ -399,11 +435,26 @@ for ix, p in enumerate(spo_params):
 
     # create boxplot
     fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
-    sns.boxplot(x=spo_data['Label'], y=np.absolute(spo_data[p]), palette='deep', linewidth=0.5, ax=ax, showfliers=False)
-    sns.swarmplot(x=spo_data['Label'], y=np.absolute(spo_data[p]), palette='muted', size=3, linewidth=0.5, edgecolor='gray', dodge=True, ax=ax)
+    sns.boxplot(
+        x=spo_data['Label'],
+        y=np.absolute(spo_data[p]),
+        palette='deep',
+        linewidth=0.5,
+        ax=ax,
+        showfliers=False)
+    sns.swarmplot(
+        x=spo_data['Label'],
+        y=np.absolute(spo_data[p]),
+        palette='muted',
+        size=3,
+        linewidth=0.5,
+        edgecolor='gray',
+        dodge=True,
+        ax=ax)
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles[:2], labels[:2], fontsize='xx-small')
-    ax.set_xticklabels(ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
+    ax.set_xticklabels(
+        ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
     ax.set_xlabel('')
     if p == 'Jspo':
         ax.set_ylabel('Jspo (mA/cm^2)')
@@ -415,7 +466,8 @@ for ix, p in enumerate(spo_params):
     # save figure and add to powerpoint
     image_path = f'{image_folder}boxplot_{p}.png'
     fig.savefig(image_path)
-    data_slide.shapes.add_picture(image_path, left=lefts[str(ix)], top=tops[str(ix)], height=height)
+    data_slide.shapes.add_picture(
+        image_path, left=lefts[str(ix)], top=tops[str(ix)], height=height)
 
 # create countplot for yields
 # create new slide
@@ -423,18 +475,26 @@ data_slide = rgl.title_image_slide(prs, f'Yields')
 
 # create countplot
 fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
-sns.countplot(x=filtered_data['Label'], data=filtered_data, hue=filtered_data['Scan_direction'], linewidth=0.5, palette='deep', edgecolor='black', ax=ax)
+sns.countplot(
+    x=filtered_data['Label'],
+    data=filtered_data,
+    hue=filtered_data['Scan_direction'],
+    linewidth=0.5,
+    palette='deep',
+    edgecolor='black',
+    ax=ax)
 handles, labels = ax.get_legend_handles_labels()
 ax.legend(handles[:2], labels[:2], fontsize='xx-small')
-ax.set_xticklabels(ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
+ax.set_xticklabels(
+    ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
 ax.set_xlabel('')
 ax.set_ylabel('Number of working pixels')
 
 # save figure and add to powerpoint
 image_path = f'{image_folder}boxchart_yields.png'
 fig.savefig(image_path)
-data_slide.shapes.add_picture(image_path, left=lefts[str(0)], top=tops[str(0)], height=height)
-
+data_slide.shapes.add_picture(
+    image_path, left=lefts[str(0)], top=tops[str(0)], height=height)
 
 # # Then it needs to be grouped by variable value. Each of these groupings is
 # # appended to a list that is iterated upon later to generate the plots.
@@ -545,7 +605,9 @@ for name, group in grouped_by_label:
     ax = fig.add_subplot(1, 1, 1)
     ax.axhline(0, lw=0.5, c='black')
     ax.axvline(0, lw=0.5, c='black')
-    ax.set_title(f'{labels[i]}, {variables[i]}, {values[i]}', fontdict={'fontsize': 'xx-small'})
+    ax.set_title(
+        f'{labels[i]}, {variables[i]}, {values[i]}',
+        fontdict={'fontsize': 'xx-small'})
 
     c_div = 1 / len(group)
     pixels = list(group['Pixel'])
@@ -639,7 +701,9 @@ for file, scan_dir in zip(best_pixels['File_Path'],
     ax = fig.add_subplot(1, 1, 1)
     ax.axhline(0, lw=0.5, c='black')
     ax.axvline(0, lw=0.5, c='black')
-    ax.set_title(f'{labels[i]}, {variables[i]}, {values[i]}', fontdict={'fontsize': 'xx-small'})
+    ax.set_title(
+        f'{labels[i]}, {variables[i]}, {values[i]}',
+        fontdict={'fontsize': 'xx-small'})
 
     # Import data for each pixel and plot on axes, ignoring errors. If
     # data in a file can't be plotted just ignore it.
@@ -787,7 +851,9 @@ for iHL, iLH in zip(group_by_label_pixel_HL.indices,
         fig = plt.figure(figsize=(A4_width / 2, A4_height / 2), dpi=300)
         ax = fig.add_subplot(1, 1, 1)
         ax.axhline(0, lw=0.5, c='black')
-        ax.set_title(f'{labels[i]}, {variables[i]}, {values[i]}', fontdict={'fontsize': 'xx-small'})
+        ax.set_title(
+            f'{labels[i]}, {variables[i]}, {values[i]}',
+            fontdict={'fontsize': 'xx-small'})
 
         # Open data files and plot a JV curve on the same axes for each scan
         j = 0
@@ -866,7 +932,8 @@ for index, row in spo_data.iterrows():
     # Add axes for J and format them
     ax1 = fig.add_subplot(1, 1, 1)
     ax1.set_title(
-        f'{label}, pixel {pixel}, {variable}, {value}, Vmp = {vmp} V', fontdict={'fontsize': 'xx-small'})
+        f'{label}, pixel {pixel}, {variable}, {value}, Vmp = {vmp} V',
+        fontdict={'fontsize': 'xx-small'})
     ax1.scatter(
         spo[:, 0], np.absolute(spo[:, 1]), color='black', s=5, label='J')
     ax1.scatter(
@@ -928,7 +995,8 @@ try:
     if (len(group_by_label_pixel_HL.groups) != 0) & (len(
             group_by_label_pixel_HL.groups) != 0):
         # Plot inensity dependent graphs if experiment data exists
-        for ng_HL, ng_LH in zip(group_by_label_pixel_HL, group_by_label_pixel_LH):
+        for ng_HL, ng_LH in zip(group_by_label_pixel_HL,
+                                group_by_label_pixel_LH):
             # Unpack group name and data
             name_HL = ng_HL[0]
             group_HL = ng_HL[1]
@@ -997,7 +1065,10 @@ try:
             fig.tight_layout()
             fig.savefig(image_path)
             data_slide.shapes.add_picture(
-                image_path, left=lefts[str(0)], top=tops[str(0)], height=height)
+                image_path,
+                left=lefts[str(0)],
+                top=tops[str(0)],
+                height=height)
 
             # Close figure
             plt.close(fig)
@@ -1059,7 +1130,10 @@ try:
             fig.tight_layout()
             fig.savefig(image_path)
             data_slide.shapes.add_picture(
-                image_path, left=lefts[str(1)], top=tops[str(1)], height=height)
+                image_path,
+                left=lefts[str(1)],
+                top=tops[str(1)],
+                height=height)
 
             # Close figure
             plt.close(fig)
@@ -1087,7 +1161,10 @@ try:
             fig.tight_layout()
             fig.savefig(image_path)
             data_slide.shapes.add_picture(
-                image_path, left=lefts[str(2)], top=tops[str(2)], height=height)
+                image_path,
+                left=lefts[str(2)],
+                top=tops[str(2)],
+                height=height)
 
             # Close figure
             plt.close(fig)
@@ -1115,14 +1192,18 @@ try:
             fig.tight_layout()
             fig.savefig(image_path)
             data_slide.shapes.add_picture(
-                image_path, left=lefts[str(3)], top=tops[str(3)], height=height)
+                image_path,
+                left=lefts[str(3)],
+                top=tops[str(3)],
+                height=height)
 
             # Close figure
             plt.close(fig)
 
         # Plot intensity dependent JV curves
         i = 0
-        for ng_HL, ng_LH in zip(group_by_label_pixel_HL, group_by_label_pixel_LH):
+        for ng_HL, ng_LH in zip(group_by_label_pixel_HL,
+                                group_by_label_pixel_LH):
             # Unpack group name and data
             name_HL = ng_HL[0]
             group_HL = ng_HL[1]
@@ -1149,7 +1230,9 @@ try:
             fig = plt.figure(figsize=(A4_width / 2, A4_height / 2), dpi=300)
             ax = fig.add_subplot(1, 1, 1)
             ax.axhline(0, lw=0.5, c='black')
-            ax.set_title(f'{label}, pixel {pixel}, {variable}, {value}', fontdict={'fontsize': 'xx-small'})
+            ax.set_title(
+                f'{label}, pixel {pixel}, {variable}, {value}',
+                fontdict={'fontsize': 'xx-small'})
 
             # Open data files and plot a JV curve on the same axes for each scan
             j = 0
