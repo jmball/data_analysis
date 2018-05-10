@@ -394,116 +394,243 @@ print('Done')
 # grouped_by_var_LH = filtered_data_LH.groupby('Variable')
 
 print('Plotting boxplots and barcharts...', end='', flush=True)
+
+
+def plot_boxplots(df, params, kind, grouping, variable=''):
+    """Create boxplots from the log file.
+
+    Parameters
+    ----------
+    df : DataFrame
+        logfile or group
+    params : list of str
+        parameters to plot
+    kind : str
+        kind of paramters plotted
+    grouping : str
+        how data are grouped
+    variable : str
+        variable
+    """
+
+    for ix, p in enumerate(params):
+        # create a new slide for every 4 plots
+        if ix % 4 == 0:
+            data_slide = rgl.title_image_slide(
+                prs, f'{variable} {kind} Parameters by {grouping}, page {int(ix / 4)}')
+
+        # create boxplot
+        fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
+        if kind == 'J-V':
+            sns.boxplot(
+                x=df[grouping],
+                y=np.absolute(df[p]),
+                hue=df['Scan_direction'],
+                palette='deep',
+                linewidth=0.5,
+                ax=ax,
+                showfliers=False)
+            sns.swarmplot(
+                x=df[grouping],
+                y=np.absolute(df[p]),
+                hue=df['Scan_direction'],
+                palette='muted',
+                size=3,
+                linewidth=0.5,
+                edgecolor='gray',
+                dodge=True,
+                ax=ax)
+        elif kind == 'SPO':
+            sns.boxplot(
+                x=df[grouping],
+                y=np.absolute(df[p]),
+                palette='deep',
+                linewidth=0.5,
+                ax=ax,
+                showfliers=False)
+            sns.swarmplot(
+                x=df[grouping],
+                y=np.absolute(df[p]),
+                palette='muted',
+                size=3,
+                linewidth=0.5,
+                edgecolor='gray',
+                dodge=True,
+                ax=ax)
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles[:2], labels[:2], fontsize='xx-small')
+        ax.set_xticklabels(
+            ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
+        ax.set_xlabel('')
+        if p in ['Jsc_int', 'Voc_int', 'PCE_int', 'Vmp_int', 'Jmp_int']:
+            ax.set_ylim(0)
+            if p == 'Jsc_int':
+                ax.set_ylabel('Jsc (mA/cm^2)')
+            elif p == 'Voc_int':
+                ax.set_ylabel('Voc (V)')
+            elif p == 'PCE_int':
+                ax.set_ylabel('PCE (%)')
+            elif p == 'Vmp_int':
+                ax.set_ylabel('Vmp (V)')
+            elif p == 'Jmp_int':
+                ax.set_ylabel('Jmp (mA/cm^2)')
+        elif p == 'FF_int':
+            ax.set_ylim((0, 1))
+            ax.set_ylabel('FF')
+        elif p in ['Rs_grad', 'Rsh_grad']:
+            ax.set_yscale('log')
+            if p == 'Rs_grad':
+                ax.set_ylabel('Rs (ohms)')
+            elif p == 'Rsh_grad':
+                ax.set_ylabel('Rsh (ohms)')
+        elif p in ['Jspo', 'PCEspo', 'PCEspo-PCE']:
+            ax.set_ylim(0)
+            if p == 'Jspo':
+                ax.set_ylabel('Jspo (mA/cm^2)')
+            elif p == 'PCEspo':
+                ax.set_ylabel('PCEspo (%)')
+            elif p == 'PCEspo-PCE':
+                ax.set_ylabel('PCEspo/PCE')
+        fig.tight_layout()
+
+        # save figure and add to powerpoint
+        image_path = ntpath.join(image_folder, f'boxplot_{p}.png')
+        fig.savefig(image_path)
+        data_slide.shapes.add_picture(
+            image_path,
+            left=lefts[str(ix % 4)],
+            top=tops[str(ix % 4)],
+            height=height)
+
+
 # create boxplots for jv parameters
 jv_params = [
     'Jsc_int', 'Voc_int', 'FF_int', 'PCE_int', 'Vmp_int', 'Jmp_int', 'Rs_grad',
     'Rsh_grad'
 ]
-for ix, p in enumerate(jv_params):
-    # create a new slide for every 4 plots
-    if ix % 4 == 0:
-        data_slide = rgl.title_image_slide(
-            prs, f'J-V Parameters, page {int(ix / 4)}')
-
-    # create boxplot
-    fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
-    sns.boxplot(
-        x=filtered_data['Label'],
-        y=np.absolute(filtered_data[p]),
-        hue=filtered_data['Scan_direction'],
-        palette='deep',
-        linewidth=0.5,
-        ax=ax,
-        showfliers=False)
-    sns.swarmplot(
-        x=filtered_data['Label'],
-        y=np.absolute(filtered_data[p]),
-        hue=filtered_data['Scan_direction'],
-        palette='muted',
-        size=3,
-        linewidth=0.5,
-        edgecolor='gray',
-        dodge=True,
-        ax=ax)
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles[:2], labels[:2], fontsize='xx-small')
-    ax.set_xticklabels(
-        ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
-    ax.set_xlabel('')
-    if p in ['Jsc_int', 'Voc_int', 'PCE_int', 'Vmp_int', 'Jmp_int']:
-        ax.set_ylim(0)
-        if p == 'Jsc_int':
-            ax.set_ylabel('Jsc (mA/cm^2)')
-        elif p == 'Voc_int':
-            ax.set_ylabel('Voc (V)')
-        elif p == 'PCE_int':
-            ax.set_ylabel('PCE (%)')
-        elif p == 'Vmp_int':
-            ax.set_ylabel('Vmp (V)')
-        elif p == 'Jmp_int':
-            ax.set_ylabel('Jmp (mA/cm^2)')
-    elif p == 'FF_int':
-        ax.set_ylim((0, 1))
-        ax.set_ylabel('FF')
-    elif p in ['Rs_grad', 'Rsh_grad']:
-        ax.set_yscale('log')
-        if p == 'Rs_grad':
-            ax.set_ylabel('Rs (ohms)')
-        elif p == 'Rsh_grad':
-            ax.set_ylabel('Rsh (ohms)')
-    fig.tight_layout()
-
-    # save figure and add to powerpoint
-    image_path = ntpath.join(image_folder, f'boxplot_{p}.png')
-    fig.savefig(image_path)
-    data_slide.shapes.add_picture(
-        image_path,
-        left=lefts[str(ix % 4)],
-        top=tops[str(ix % 4)],
-        height=height)
-
-# create boxplots for spo parameters
 spo_params = ['Jspo', 'PCEspo', 'PCEspo-PCE']
-for ix, p in enumerate(spo_params):
-    # create a new slide
-    if ix % 4 == 0:
-        data_slide = rgl.title_image_slide(prs, f'SPO Parameters')
 
-    # create boxplot
-    fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
-    sns.boxplot(
-        x=spo_data['Label'],
-        y=np.absolute(spo_data[p]),
-        palette='deep',
-        linewidth=0.5,
-        ax=ax,
-        showfliers=False)
-    sns.swarmplot(
-        x=spo_data['Label'],
-        y=np.absolute(spo_data[p]),
-        palette='muted',
-        size=3,
-        linewidth=0.5,
-        edgecolor='gray',
-        dodge=True,
-        ax=ax)
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles[:2], labels[:2], fontsize='xx-small')
-    ax.set_xticklabels(
-        ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
-    ax.set_xlabel('')
-    if p == 'Jspo':
-        ax.set_ylabel('Jspo (mA/cm^2)')
-    elif p == 'PCEspo':
-        ax.set_ylabel('PCEspo (%)')
-    ax.set_ylim(0)
-    fig.tight_layout()
+# create boxplots
+plot_boxplots(filtered_data, jv_params, 'J-V', 'Label')
+plt.close('all')
+plot_boxplots(spo_data, spo_params, 'SPO', 'Label')
+plt.close('all')
 
-    # save figure and add to powerpoint
-    image_path = ntpath.join(image_folder, f'boxplot_{p}.png')
-    fig.savefig(image_path)
-    data_slide.shapes.add_picture(
-        image_path, left=lefts[str(ix)], top=tops[str(ix)], height=height)
+grouped_filtered_data = filtered_data.groupby(['Variable'])
+grouped_spo_data = spo_data.groupby(['Variable'])
+for name, group in grouped_filtered_data:
+    plot_boxplots(group, jv_params, 'J-V', 'Value', name)
+    plt.close('all')
+
+for name, group in grouped_spo_data:
+    plot_boxplots(group, spo_params, 'SPO', 'Value', name)
+    plt.close('all')
+
+# for ix, p in enumerate(jv_params):
+#     # create a new slide for every 4 plots
+#     if ix % 4 == 0:
+#         data_slide = rgl.title_image_slide(
+#             prs, f'J-V Parameters, page {int(ix / 4)}')
+#
+#     # create boxplot
+#     fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
+#     sns.boxplot(
+#         x=filtered_data['Label'],
+#         y=np.absolute(filtered_data[p]),
+#         hue=filtered_data['Scan_direction'],
+#         palette='deep',
+#         linewidth=0.5,
+#         ax=ax,
+#         showfliers=False)
+#     sns.swarmplot(
+#         x=filtered_data['Label'],
+#         y=np.absolute(filtered_data[p]),
+#         hue=filtered_data['Scan_direction'],
+#         palette='muted',
+#         size=3,
+#         linewidth=0.5,
+#         edgecolor='gray',
+#         dodge=True,
+#         ax=ax)
+#     handles, labels = ax.get_legend_handles_labels()
+#     ax.legend(handles[:2], labels[:2], fontsize='xx-small')
+#     ax.set_xticklabels(
+#         ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
+#     ax.set_xlabel('')
+#     if p in ['Jsc_int', 'Voc_int', 'PCE_int', 'Vmp_int', 'Jmp_int']:
+#         ax.set_ylim(0)
+#         if p == 'Jsc_int':
+#             ax.set_ylabel('Jsc (mA/cm^2)')
+#         elif p == 'Voc_int':
+#             ax.set_ylabel('Voc (V)')
+#         elif p == 'PCE_int':
+#             ax.set_ylabel('PCE (%)')
+#         elif p == 'Vmp_int':
+#             ax.set_ylabel('Vmp (V)')
+#         elif p == 'Jmp_int':
+#             ax.set_ylabel('Jmp (mA/cm^2)')
+#     elif p == 'FF_int':
+#         ax.set_ylim((0, 1))
+#         ax.set_ylabel('FF')
+#     elif p in ['Rs_grad', 'Rsh_grad']:
+#         ax.set_yscale('log')
+#         if p == 'Rs_grad':
+#             ax.set_ylabel('Rs (ohms)')
+#         elif p == 'Rsh_grad':
+#             ax.set_ylabel('Rsh (ohms)')
+#     fig.tight_layout()
+#
+#     # save figure and add to powerpoint
+#     image_path = ntpath.join(image_folder, f'boxplot_{p}.png')
+#     fig.savefig(image_path)
+#     data_slide.shapes.add_picture(
+#         image_path,
+#         left=lefts[str(ix % 4)],
+#         top=tops[str(ix % 4)],
+#         height=height)
+#
+# # create boxplots for spo parameters
+# spo_params = ['Jspo', 'PCEspo', 'PCEspo-PCE']
+# for ix, p in enumerate(spo_params):
+#     # create a new slide
+#     if ix % 4 == 0:
+#         data_slide = rgl.title_image_slide(prs, f'SPO Parameters')
+#
+#     # create boxplot
+#     fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
+#     sns.boxplot(
+#         x=spo_data['Label'],
+#         y=np.absolute(spo_data[p]),
+#         palette='deep',
+#         linewidth=0.5,
+#         ax=ax,
+#         showfliers=False)
+#     sns.swarmplot(
+#         x=spo_data['Label'],
+#         y=np.absolute(spo_data[p]),
+#         palette='muted',
+#         size=3,
+#         linewidth=0.5,
+#         edgecolor='gray',
+#         dodge=True,
+#         ax=ax)
+#     handles, labels = ax.get_legend_handles_labels()
+#     ax.legend(handles[:2], labels[:2], fontsize='xx-small')
+#     ax.set_xticklabels(
+#         ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
+#     ax.set_xlabel('')
+#     if p == 'Jspo':
+#         ax.set_ylabel('Jspo (mA/cm^2)')
+#     elif p == 'PCEspo':
+#         ax.set_ylabel('PCEspo (%)')
+#     ax.set_ylim(0)
+#     fig.tight_layout()
+#
+#     # save figure and add to powerpoint
+#     image_path = ntpath.join(image_folder, f'boxplot_{p}.png')
+#     fig.savefig(image_path)
+#     data_slide.shapes.add_picture(
+#         image_path, left=lefts[str(ix)], top=tops[str(ix)], height=height)
 
 # create countplot for yields
 # create new slide
