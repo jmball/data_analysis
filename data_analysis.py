@@ -4,6 +4,7 @@
 # import argparse
 import os
 import time
+import ntpath
 
 # import matplotlib
 # matplotlib.use('WXAgg')
@@ -54,18 +55,50 @@ def parse():
     return args
 
 
+def recursive_path_split(filepath):
+    """Recursively split filepath into sub-parts delimited by OS file seperator.
+
+    Parameters
+    ----------
+    path : str
+        filepath
+
+    Returns
+    -------
+    split : tuple
+        sub-parts of filepath
+    """
+    head, tail = os.path.split(filepath)
+    if tail == '':
+        return head,
+    return recursive_path_split(head) + (tail,)
+
+
 args = parse()
 
 # Define folder and file paths
 log_filepath = args.log_filepath
-log_filepath_split = log_filepath.split('\\')
-log_filename = log_filepath_split[-1]
-folderpath = log_filepath.replace(log_filename, '')
+# log_filepath_split = log_filepath.split('\\')
+# log_filename = log_filepath_split[-1]
+# folderpath = log_filepath.replace(log_filename, '')
+
+folderpath, log_filename = ntpath.split(log_filepath)
+# print(head)
+# print(folderpath)
+# print(tail == log_filename)
+
+os.chdir(folderpath)
 
 # Create folders for storing files generated during analysis
 print('Creating analysis folder...', end='', flush=True)
-analysis_folder = folderpath + 'Analysis\\'
-image_folder = analysis_folder + 'Figures\\'
+# analysis_folder = folderpath + 'Analysis\\'
+# image_folder = analysis_folder + 'Figures\\'
+
+analysis_folder = ntpath.join(folderpath, 'Analysis')
+image_folder = ntpath.join(analysis_folder, 'Figures')
+# print(an)
+# print(ntpath.join(an, 'Figures'))
+
 if os.path.exists(analysis_folder):
     pass
 else:
@@ -78,11 +111,13 @@ print('Done')
 
 # Get username, date, and experiment title from folderpath for the title page
 # of the powerpoint version of the report.
-folderpath_split = folderpath.split('\\')
-username = folderpath_split[5]
+# folderpath_split = folderpath.split('\\')
+folderpath_split = recursive_path_split(folderpath)
+print(folderpath_split)
+username = folderpath_split[-2]
 exp_date = time.strftime('%A %B %d %Y',
                          time.localtime(os.path.getctime(log_filepath)))
-experiment_title = folderpath_split[6]
+experiment_title = folderpath_split[-1]
 
 # Set physical constants
 kB = constants.Boltzmann
@@ -144,7 +179,7 @@ slide = prs.slides.add_slide(title_slide_layout)
 title = slide.shapes.title
 subtitle = slide.placeholders[1]
 title.text = experiment_title
-subtitle.text = exp_date + '\n' + username
+subtitle.text = f'{exp_date}\n{username}'
 
 # Add slide with table for manual completion of experimental details.
 blank_slide_layout = prs.slide_layouts[6]
@@ -211,9 +246,10 @@ jmp_int_lst = []
 rs_grad_lst = []
 rsh_grad_lst = []
 for i in range(len(data['File_Path'])):
-    file = data['File_Path'][i]
-    new_path = file.replace('\\', '\\\\')
-    params = rgl.extra_JV_analysis(new_path)
+    filepath = data['File_Path'][i]
+    # new_path = file.replace('\\', '\\\\')
+    # params = rgl.extra_JV_analysis(new_path)
+    params = rgl.extra_JV_analysis(filepath)
     area_lst.append(params[0])
     scan_direction_lst.append(params[1])
     condition_lst.append(params[2])
@@ -418,7 +454,7 @@ for ix, p in enumerate(jv_params):
     fig.tight_layout()
 
     # save figure and add to powerpoint
-    image_path = f'{image_folder}boxplot_{p}.png'
+    image_path = ntpath.join(image_folder, f'boxplot_{p}.png')
     fig.savefig(image_path)
     data_slide.shapes.add_picture(
         image_path,
@@ -464,7 +500,7 @@ for ix, p in enumerate(spo_params):
     fig.tight_layout()
 
     # save figure and add to powerpoint
-    image_path = f'{image_folder}boxplot_{p}.png'
+    image_path = ntpath.join(image_folder, f'boxplot_{p}.png')
     fig.savefig(image_path)
     data_slide.shapes.add_picture(
         image_path, left=lefts[str(ix)], top=tops[str(ix)], height=height)
@@ -491,7 +527,7 @@ ax.set_xlabel('')
 ax.set_ylabel('Number of working pixels')
 
 # save figure and add to powerpoint
-image_path = f'{image_folder}boxchart_yields.png'
+image_path = ntpath.join(image_folder, f'boxchart_yields.png')
 fig.savefig(image_path)
 data_slide.shapes.add_picture(
     image_path, left=lefts[str(0)], top=tops[str(0)], height=height)
@@ -539,7 +575,7 @@ data_slide.shapes.add_picture(
 #             prs, boxplotdata_HL['var_names'][i] + ' basic parameters')
 #         params = ['Jsc', 'Voc', 'FF', 'PCE']
 #         for ix, p in enumerate(params):
-#             image_path = image_folder + 'boxplot_' + p + '.png'
+#             image_path = image_folder + 'boxplot_' + p + '.png')
 #             rgl.create_save_boxplot(p, boxplotdata_HL, boxplotdata_LH, i, x,
 #                                     image_path)
 #             data_slide.shapes.add_picture(
@@ -556,15 +592,15 @@ data_slide.shapes.add_picture(
 #         params = ['Rs', 'Rsh', 'yields_var', 'yields_var_lab']
 #         for ix, p in enumerate(params):
 #             if p.find('yield') == -1:
-#                 image_path = image_folder + 'boxplot_' + p + '.png'
+#                 image_path = image_folder + 'boxplot_' + p + '.png')
 #                 rgl.create_save_boxplot(p, boxplotdata_HL, boxplotdata_LH, i,
 #                                         x, image_path)
 #             elif p == 'yields_var':
-#                 image_path = image_folder + 'barchart_' + p + '.png'
+#                 image_path = image_folder + 'barchart_' + p + '.png')
 #                 rgl.create_save_barchart(yields_var, names_yield_var, i,
 #                                          image_path)
 #             elif p == 'yields_var_lab':
-#                 image_path = image_folder + 'barchart_' + p + '.png'
+#                 image_path = image_folder + 'barchart_' + p + '.png')
 #                 rgl.create_save_barchart(yields_var_lab, names_yield_var_lab,
 #                                          i, image_path)
 #             data_slide.shapes.add_picture(
@@ -657,7 +693,7 @@ for name, group in grouped_by_label:
     lgd = ax.legend(handles, labs, loc='upper left', bbox_to_anchor=(1, 1))
 
     # Format the figure layout, save to file, and add to ppt
-    image_path = f'{image_folder}jv_all_{labels[i]}.png'
+    image_path = ntpath.join(image_folder, f'jv_all_{labels[i]}.png')
     fig.savefig(image_path, bbox_extra_artists=(lgd, ), bbox_inches='tight')
     data_slide.shapes.add_picture(
         image_path,
@@ -781,7 +817,7 @@ for file, scan_dir in zip(best_pixels['File_Path'],
     ax.legend(loc='best')
 
     # Format the figure layout, save to file, and add to ppt
-    image_path = f'{image_folder}jv_best_{variables[i]}_{variables[i]}.png'
+    image_path = ntpath.join(image_folder, f'jv_best_{variables[i]}_{variables[i]}.png')
     fig.tight_layout()
     fig.savefig(image_path)
     data_slide.shapes.add_picture(
@@ -890,7 +926,7 @@ for iHL, iLH in zip(group_by_label_pixel_HL.indices,
             handles, labels, loc='upper left', bbox_to_anchor=(1, 1))
 
         # Format the figure layout, save to file, and add to ppt
-        image_path = f'{image_folder}jv_repeats_{label}_{variable}_{value}_{pixel}.png'
+        image_path = ntpath.join(image_folder, f'jv_repeats_{label}_{variable}_{value}_{pixel}.png')
         fig.savefig(image_path, bbox_extra_artists=(lgd), bbox_inches='tight')
         data_slide.shapes.add_picture(
             image_path,
@@ -949,7 +985,7 @@ for index, row in spo_data.iterrows():
     ax1.legend()
 
     # Format the figure layout, save to file, and add to ppt
-    image_path = f'{image_folder}spo_{label}_{variable}_{value}_{pixel}.png'
+    image_path = ntpath.join(image_folder, f'spo_{label}_{variable}_{value}_{pixel}.png')
     fig.tight_layout()
     fig.subplots_adjust(hspace=0.05)
     fig.savefig(image_path)
@@ -1061,7 +1097,7 @@ try:
             ax.set_xlim([0, np.max(group_HL['Intensity'] * 100) * 1.05])
 
             # Format the figure layout, save to file, and add to ppt
-            image_path = f'{image_folder}intensity_jsc_{label}_{variable}_{value}_{pixel}.png'
+            image_path = ntpath.join(image_folder, f'intensity_jsc_{label}_{variable}_{value}_{pixel}.png')
             fig.tight_layout()
             fig.savefig(image_path)
             data_slide.shapes.add_picture(
@@ -1126,7 +1162,7 @@ try:
             ])
 
             # Format the figure layout, save to file, and add to ppt
-            image_path = f'{image_folder}intensity_voc_{label}_{variable}_{value}_{pixel}.png'
+            image_path = ntpath.join(image_folder, f'intensity_voc_{label}_{variable}_{value}_{pixel}.png')
             fig.tight_layout()
             fig.savefig(image_path)
             data_slide.shapes.add_picture(
@@ -1157,7 +1193,7 @@ try:
             ax.set_xlim([0, np.max(group_HL['Intensity'] * 100) * 1.05])
 
             # Format the figure layout, save to file, and add to ppt
-            image_path = f'{image_folder}intensity_ff_{label}_{variable}_{value}_{pixel}.png'
+            image_path = ntpath.join(image_folder, f'intensity_ff_{label}_{variable}_{value}_{pixel}.png')
             fig.tight_layout()
             fig.savefig(image_path)
             data_slide.shapes.add_picture(
@@ -1188,7 +1224,7 @@ try:
             ax.set_xlim([0, np.max(group_HL['Intensity'] * 100) * 1.05])
 
             # Format the figure layout, save to file, and add to ppt
-            image_path = f'{image_folder}intensity_pce_{label}_{variable}_{value}_{pixel}png'
+            image_path = ntpath.join(image_folder, f'intensity_pce_{label}_{variable}_{value}_{pixel}.png')
             fig.tight_layout()
             fig.savefig(image_path)
             data_slide.shapes.add_picture(
@@ -1272,7 +1308,7 @@ try:
                 prop={'size': 9})
 
             # Format the figure layout, save to file, and add to ppt
-            image_path = f'{image_folder}jv_intensity_{label}_{variable}_{value}_{pixel}.png'
+            image_path = ntpath.join(image_folder, f'jv_intensity_{label}_{variable}_{value}_{pixel}.png')
             fig.savefig(
                 image_path, bbox_extra_artists=(lgd, ), bbox_inches='tight')
             data_slide.shapes.add_picture(
@@ -1296,5 +1332,5 @@ print('Done')
 
 # Save powerpoint presentation
 print('Saving powerpoint presentation...', end='', flush=True)
-prs.save(log_filepath.strip('.log') + '_summary.pptx')
+prs.save(log_filepath.replace('.log', '_summary.pptx'))
 print('Done')

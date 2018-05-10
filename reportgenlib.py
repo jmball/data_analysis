@@ -1,6 +1,7 @@
 # Library of functions for analysis and plotting of the Automated PV
 # Measurement data output.
 
+import ntpath
 import os
 from functools import reduce
 
@@ -80,9 +81,8 @@ def extra_JV_analysis(filepath):
         shunt resistance derived from gradient at jsc in ohms
     """
 
-    filepath = filepath.replace(r'\\\\groupfs.physics.ox.ac.uk\\CMGroups',
-                                'Y:\\\\Groups\\\\Condensed Matter')
-
+    # get relative file path
+    folder, filepath = ntpath.split(filepath)
     print(filepath)
 
     # determine condition
