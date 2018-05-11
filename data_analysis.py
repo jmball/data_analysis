@@ -113,7 +113,6 @@ print('Done')
 # of the powerpoint version of the report.
 # folderpath_split = folderpath.split('\\')
 folderpath_split = recursive_path_split(folderpath)
-print(folderpath_split)
 username = folderpath_split[-2]
 exp_date = time.strftime('%A %B %d %Y',
                          time.localtime(os.path.getctime(log_filepath)))
@@ -423,7 +422,7 @@ def plot_boxplots(df, params, kind, grouping, variable=''):
                 prs, f'{variable} {kind} Parameters by {grouping}, page {int(ix / 4)}')
 
         # create boxplot
-        fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
+        fig, ax = plt.subplots(1, 1, dpi=300, **{'figsize': (A4_width / 2, A4_height / 2)})
         if kind == 'J-V':
             sns.boxplot(
                 x=df[grouping],
@@ -640,7 +639,7 @@ for name, group in grouped_spo_data:
 data_slide = rgl.title_image_slide(prs, f'Yields, page 0')
 
 # create countplot
-fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
+fig, ax = plt.subplots(1, 1, dpi=300, **{'figsize': (A4_width / 2, A4_height / 2)})
 sns.countplot(
     x=filtered_data['Label'],
     data=filtered_data,
@@ -666,13 +665,12 @@ data_slide.shapes.add_picture(
 # plot yields by variable
 ix = 1
 for name, group in grouped_filtered_data:
-    print(name)
     # create new slide if needed
     if ix % 4 == 0:
         data_slide = rgl.title_image_slide(prs, f'Yields, page {int(ix / 4)}')
 
     # create count plot
-    fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
+    fig, ax = plt.subplots(1, 1, dpi=300, **{'figsize': (A4_width / 2, A4_height / 2)})
     ax.set_title(f'{name}', fontdict={'fontsize': 'small'})
     sns.countplot(
         x=group['Value'],
@@ -692,7 +690,6 @@ for name, group in grouped_filtered_data:
 
     # save figure and add to powerpoint
     image_path = ntpath.join(image_folder, f'boxchart_yields_var{i}.png')
-    print(image_path)
     fig.savefig(image_path)
     data_slide.shapes.add_picture(
         image_path, left=lefts[str(ix % 4)], top=tops[str(ix % 4)], height=height)
@@ -814,12 +811,12 @@ for name, group in grouped_by_label:
         fontdict={'fontsize': 'xx-small'})
 
     # get parameters for plot formatting
-    c_div = 1 / (len(group) / 2)
+    c_div = 1 / 8
     pixels = list(group['Pixel'])
-    max_group_jsc = np.max(np.absolute(group['Jsc_int']))
+    max_group_jmp = np.max(np.absolute(group['Jmp_int']))
     max_group_voc = np.max(np.absolute(group['Voc_int']))
 
-    signs, counts = np.unique(np.sign(group['Jsc']), return_counts=True)
+    signs, counts = np.unique(np.sign(group['Jmp_int']), return_counts=True)
     if len(signs) == 1:
         sign = signs[0]
     else:
@@ -850,10 +847,10 @@ for name, group in grouped_by_label:
     ax.set_ylabel('J (mA/cm^2)')
     if sign > 0:
         ax.set_xlim([np.min(data_HL[:, 0]), max_group_voc + 0.25])
-        ax.set_ylim([-max_group_jsc * 2.2, max_group_jsc * 1.1])
+        ax.set_ylim([-max_group_jmp * 2.8, max_group_jmp * 1.4])
     else:
         ax.set_xlim([-max_group_voc - 0.25, np.max(data_HL[:, 0])])
-        ax.set_ylim([-max_group_jsc * 1.1, max_group_jsc * 2.2])
+        ax.set_ylim([-max_group_jmp * 1.4, max_group_jmp * 2.8])
 
     # Adjust plot width to add legend outside plot area
     box = ax.get_position()
@@ -889,7 +886,9 @@ subplot_cols = np.ceil(no_of_subplots / subplot_rows)
 # create lists of varibales and values for labelling figures
 variables = list(best_pixels['Variable'])
 values = list(best_pixels['Value'])
-jscs = list(np.absolute(best_pixels['Jsc']))
+jmps = list(np.absolute(best_pixels['Jmp_int']))
+vocs = list(np.absolute(best_pixels['Voc_int']))
+signs = list(np.sign(best_pixels['Jmp_int']))
 
 # Loop for iterating through best pixels dataframe and picking out JV data
 # files. Each plot contains forward and reverse sweeps, both light and dark.
@@ -979,10 +978,13 @@ for file, scan_dir in zip(best_pixels['Rel_Path'],
     # Format the axes
     ax.set_xlabel('Applied bias (V)')
     ax.set_ylabel('J (mA/cm^2)')
-    ax.set_xlim(
-        [np.min(JV_light_HL_data[:, 0]),
-         np.max(JV_light_HL_data[:, 0])])
-    ax.set_ylim([-jscs[i] * 1.1, jscs[i] * 1.1])
+    if signs[i] > 0:
+        ax.set_xlim([np.min(JV_light_HL_data[:, 0]), vocs[i] + 0.25])
+        ax.set_ylim([-jmps[i] * 2.8, jmps[i] * 1.4])
+    else:
+        ax.set_xlim([-vocs[i] - 0.25, np.max(JV_light_HL_data[:, 0])])
+        ax.set_ylim([-jmps[i] * 1.4, jmps[i] * 2.8])
+
     ax.legend(loc='best')
 
     # Format the figure layout, save to file, and add to ppt
