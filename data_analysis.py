@@ -406,9 +406,10 @@ print('Done')
 
 # Sort data
 print('Sorting and filtering data...', end='', flush=True)
-sorted_data = data.sort_values(
-    ['Variable', 'Value', 'Label', 'Pixel', 'PCE_int'],
-    ascending=[True, True, True, True, False])
+# sorted_data = data.sort_values(
+#     ['Variable', 'Value', 'Label', 'Pixel', 'PCE_int'],
+#     ascending=[True, True, True, True, False])
+sorted_data = data.sort_values(['Label', 'Pixel', 'PCE_int'], ascending=[True, True, False])
 
 # Fill in label column of device info table in ppt
 i = 1
