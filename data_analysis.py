@@ -171,6 +171,50 @@ def plot_boxplots(df, params, kind, grouping, variable=''):
             height=height)
 
 
+def plot_countplots(df, ix, grouping, data_slide, variable=''):
+    """Create countplots from the log file.
+
+    Parameters
+    ----------
+    df : DataFrame
+        logfile or group
+    ix : int
+        figure index
+    grouping : str
+        how data are grouped
+    data_slide: slide
+        slide in ppt to add figures to
+    variable : str
+        variable
+    """
+
+    # create count plot
+    fig, ax = plt.subplots(1, 1, dpi=300, **{'figsize': (A4_width / 2, A4_height / 2)})
+    if grouping == 'Value':
+        ax.set_title(f'{variable}', fontdict={'fontsize': 'small'})
+    sns.countplot(
+        x=df[grouping],
+        data=df,
+        hue=df['Scan_direction'],
+        linewidth=0.5,
+        palette='deep',
+        edgecolor='black',
+        ax=ax)
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles[:2], labels[:2], fontsize='xx-small')
+    ax.set_xticklabels(
+        ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
+    ax.set_xlabel('')
+    ax.set_ylabel('Number of working pixels')
+    fig.tight_layout()
+
+    # save figure and add to powerpoint
+    image_path = ntpath.join(image_folder, f'boxchart_yields{ix}.png')
+    fig.savefig(image_path)
+    data_slide.shapes.add_picture(
+        image_path, left=lefts[str(ix % 4)], top=tops[str(ix % 4)], height=height)
+
+
 # parse args
 args = parse()
 
@@ -433,66 +477,20 @@ for name, group in grouped_spo_data:
     plot_boxplots(group, spo_params, 'SPO', 'Value', name)
     plt.close('all')
 
-# create countplots for yields
-data_slide = rgl.title_image_slide(prs, f'Yields, page 0')
+# create countplot for yields grouped by label
+ix = 0
+data_slide = rgl.title_image_slide(prs, f'Yields, page {int(ix / 4)}')
+plot_countplots(filtered_data, ix, 'Label', data_slide)
 
-# create countplot
-fig, ax = plt.subplots(1, 1, dpi=300, **{'figsize': (A4_width / 2, A4_height / 2)})
-sns.countplot(
-    x=filtered_data['Label'],
-    data=filtered_data,
-    hue=filtered_data['Scan_direction'],
-    linewidth=0.5,
-    palette='deep',
-    edgecolor='black',
-    ax=ax)
-handles, labels = ax.get_legend_handles_labels()
-ax.legend(handles[:2], labels[:2], fontsize='xx-small')
-ax.set_xticklabels(
-    ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
-ax.set_xlabel('')
-ax.set_ylabel('Number of working pixels')
-fig.tight_layout()
-
-# save figure and add to powerpoint
-image_path = ntpath.join(image_folder, f'boxchart_yields.png')
-fig.savefig(image_path)
-data_slide.shapes.add_picture(
-    image_path, left=lefts[str(0)], top=tops[str(0)], height=height)
-
-# plot yields by variable
+# create countplot for yields grouped by variable value
 ix = 1
 for name, group in grouped_filtered_data:
-    # create new slide if needed
+    # create new slide if necessary
     if ix % 4 == 0:
         data_slide = rgl.title_image_slide(prs, f'Yields, page {int(ix / 4)}')
-
-    # create count plot
-    fig, ax = plt.subplots(1, 1, dpi=300, **{'figsize': (A4_width / 2, A4_height / 2)})
-    ax.set_title(f'{name}', fontdict={'fontsize': 'small'})
-    sns.countplot(
-        x=group['Value'],
-        data=group,
-        hue=filtered_data['Scan_direction'],
-        linewidth=0.5,
-        palette='deep',
-        edgecolor='black',
-        ax=ax)
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles[:2], labels[:2], fontsize='xx-small')
-    ax.set_xticklabels(
-        ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
-    ax.set_xlabel('')
-    ax.set_ylabel('Number of working pixels')
-    fig.tight_layout()
-
-    # save figure and add to powerpoint
-    image_path = ntpath.join(image_folder, f'boxchart_yields_var{i}.png')
-    fig.savefig(image_path)
-    data_slide.shapes.add_picture(
-        image_path, left=lefts[str(ix % 4)], top=tops[str(ix % 4)], height=height)
-
+    plot_countplots(filtered_data, ix, 'Value', data_slide, name)
     ix += 1
+
 print('Done')
 
 print('Plotting JV curves...', end='', flush=True)
