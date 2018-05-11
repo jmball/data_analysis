@@ -1,7 +1,6 @@
 # This script takes the measurement log files and loads them as Pandas
 # DataFrames for manipulation and then plotting.
 
-# import argparse
 import os
 import time
 import ntpath
@@ -19,7 +18,6 @@ from pptx import Presentation
 from pptx.util import Inches
 from scipy import constants
 
-# import gooey
 import reportgenlib as rgl
 from gooey import Gooey, GooeyParser
 
@@ -30,15 +28,7 @@ axes.Axes.set_axes_props = rgl.set_axes_props
 axes.Axes.subboxplot = rgl.subboxplot
 axes.Axes.subbarchart = rgl.subbarchart
 
-# # get paths to gooey files
-# gooey_root = os.path.dirname(gooey.__file__)
-# gooey_images = (os.path.join(gooey_root, 'images/report'))
-# print(gooey_images)
 
-
-# # create Gooey parser
-# @Gooey(image_dir=gooey_images,
-#        program_name='Data Analysis')
 @Gooey(program_name='Data Analysis')
 def parse():
     """Parse command line arguments to Gooey GUI"""
@@ -72,330 +62,6 @@ def recursive_path_split(filepath):
     if tail == '':
         return head,
     return recursive_path_split(head) + (tail,)
-
-
-args = parse()
-
-# Define folder and file paths
-log_filepath = args.log_filepath
-# log_filepath_split = log_filepath.split('\\')
-# log_filename = log_filepath_split[-1]
-# folderpath = log_filepath.replace(log_filename, '')
-
-folderpath, log_filename = ntpath.split(log_filepath)
-# print(head)
-# print(folderpath)
-# print(tail == log_filename)
-
-os.chdir(folderpath)
-
-# Create folders for storing files generated during analysis
-print('Creating analysis folder...', end='', flush=True)
-# analysis_folder = folderpath + 'Analysis\\'
-# image_folder = analysis_folder + 'Figures\\'
-
-analysis_folder = ntpath.join(folderpath, 'Analysis')
-image_folder = ntpath.join(analysis_folder, 'Figures')
-# print(an)
-# print(ntpath.join(an, 'Figures'))
-
-if os.path.exists(analysis_folder):
-    pass
-else:
-    os.makedirs(analysis_folder)
-if os.path.exists(image_folder):
-    pass
-else:
-    os.makedirs(image_folder)
-print('Done')
-
-# Get username, date, and experiment title from folderpath for the title page
-# of the powerpoint version of the report.
-# folderpath_split = folderpath.split('\\')
-folderpath_split = recursive_path_split(folderpath)
-username = folderpath_split[-2]
-exp_date = time.strftime('%A %B %d %Y',
-                         time.localtime(os.path.getctime(log_filepath)))
-experiment_title = folderpath_split[-1]
-
-# Set physical constants
-kB = constants.Boltzmann
-q = constants.elementary_charge
-c = constants.speed_of_light
-h = constants.Planck
-T = 300
-
-# Read in data from JV log file
-print('Loading log file...', end='', flush=True)
-data = pd.read_csv(log_filepath, delimiter='\t', header=None)
-
-num_cols = len(data.columns)
-
-if num_cols == 13:
-    names = [
-        'Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo-PCE',
-        'Label', 'Variable', 'Value', 'Pixel', 'File_Path'
-    ]
-elif num_cols == 14:
-    names = [
-        'Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo-PCE',
-        'Label', 'Variable', 'Value', 'Pixel', 'Intensity', 'File_Path'
-    ]
-elif num_cols == 15:
-    names = [
-        'Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo-PCE',
-        'Label', 'Variable', 'Value', 'Pixel', 'Intensity', 'Assumed_Eg',
-        'File_Path'
-    ]
-else:
-    raise ValueError(
-        f'expected 13, 14, or 15 columns in log file but received {num_cols}')
-
-data.columns = names
-print('Done')
-
-# Read scan numbers from file paths and add scan number column
-# to dataframe
-scan_num = []
-for path in data['File_Path']:
-    scan_i = path.find('scan', len(path) - 12)
-    scan_n = path[scan_i:].strip('scan').strip('_')
-    scan_n = scan_n.strip('.liv1')
-    scan_n = scan_n.strip('.liv2')
-    scan_n = scan_n.strip('.div1')
-    scan_n = scan_n.strip('.div2')
-    scan_n = scan_n.strip('.hold')
-    scan_num.append(scan_n)
-data['scan_num'] = pd.Series(scan_num, index=data.index)
-
-# Create a powerpoint presentation to add figures to.
-print('Creating powerpoint file...', end='', flush=True)
-prs = Presentation()
-
-# Add title page with experiment title, date, and username.
-title_slide_layout = prs.slide_layouts[0]
-slide = prs.slides.add_slide(title_slide_layout)
-title = slide.shapes.title
-subtitle = slide.placeholders[1]
-title.text = experiment_title
-subtitle.text = f'{exp_date}\n{username}'
-
-# Add slide with table for manual completion of experimental details.
-blank_slide_layout = prs.slide_layouts[6]
-slide = prs.slides.add_slide(blank_slide_layout)
-shapes = slide.shapes
-rows = 17
-cols = 6
-left = Inches(0.15)
-top = Inches(0.02)
-width = prs.slide_width - Inches(0.25)
-height = prs.slide_height - Inches(0.05)
-table = shapes.add_table(rows, cols, left, top, width, height).table
-
-# set column widths
-table.columns[0].width = Inches(0.8)
-table.columns[1].width = Inches(1.2)
-table.columns[2].width = Inches(2.0)
-table.columns[3].width = Inches(2.0)
-table.columns[4].width = Inches(2.0)
-table.columns[5].width = Inches(1.7)
-
-# write column headings
-table.cell(0, 0).text = 'Label'
-table.cell(0, 1).text = 'Substrate'
-table.cell(0, 2).text = 'Bottom contact'
-table.cell(0, 3).text = 'Perovskite'
-table.cell(0, 4).text = 'Top contact'
-table.cell(0, 5).text = 'Top electrode'
-
-# Define dimensions used for adding images to slides
-A4_height = 7.5
-A4_width = 10
-height = prs.slide_height * 0.95 / 2
-width = prs.slide_width * 0.95 / 2
-
-# Create dictionaries that define where to put images on slides
-# in the powerpoint presentation.
-lefts = {
-    '0': Inches(0),
-    '1': prs.slide_width - width,
-    '2': Inches(0),
-    '3': prs.slide_width - width
-}
-tops = {
-    '0': prs.slide_height * 0.05,
-    '1': prs.slide_height * 0.05,
-    '2': prs.slide_height - height,
-    '3': prs.slide_height - height
-}
-print('Done')
-
-# Use the extra analysis function to perform extra analysis and create new
-# series for the dataframe
-print('Performing additional JV analysis...')
-area_lst = []
-scan_direction_lst = []
-condition_lst = []
-jsc_int_lst = []
-voc_int_lst = []
-ff_int_lst = []
-pce_int_lst = []
-vmp_int_lst = []
-jmp_int_lst = []
-rs_grad_lst = []
-rsh_grad_lst = []
-rel_path_lst = []
-for i in range(len(data['File_Path'])):
-    filepath = data['File_Path'][i]
-    # new_path = file.replace('\\', '\\\\')
-    # params = rgl.extra_JV_analysis(new_path)
-    params = rgl.extra_JV_analysis(filepath)
-    area_lst.append(params[0])
-    scan_direction_lst.append(params[1])
-    condition_lst.append(params[2])
-    jsc_int_lst.append(params[3])
-    voc_int_lst.append(params[4])
-    ff_int_lst.append(params[5])
-    pce_int_lst.append(params[6])
-    vmp_int_lst.append(params[7])
-    jmp_int_lst.append(params[8])
-    rs_grad_lst.append(params[9])
-    rsh_grad_lst.append(params[10])
-    rel_path_lst.append(params[11])
-
-# Add new series to the dataframe
-data['Area'] = pd.Series(area_lst, index=data.index)
-data['Scan_direction'] = pd.Series(scan_direction_lst, index=data.index)
-data['Condition'] = pd.Series(condition_lst, index=data.index)
-data['Jsc_int'] = pd.Series(jsc_int_lst, index=data.index)
-data['Voc_int'] = pd.Series(voc_int_lst, index=data.index)
-data['FF_int'] = pd.Series(ff_int_lst, index=data.index)
-data['PCE_int'] = pd.Series(pce_int_lst, index=data.index)
-data['Vmp_int'] = pd.Series(vmp_int_lst, index=data.index)
-data['Jmp_int'] = pd.Series(jmp_int_lst, index=data.index)
-data['Rs_grad'] = pd.Series(rs_grad_lst, index=data.index)
-data['Rsh_grad'] = pd.Series(rsh_grad_lst, index=data.index)
-data['Rel_Path'] = pd.Series(rel_path_lst, index=data.index)
-print('Done')
-
-# Sort data
-print('Sorting and filtering data...', end='', flush=True)
-sorted_data = data.sort_values(
-    ['Variable', 'Value', 'Label', 'Pixel', 'PCE_int'],
-    ascending=[True, True, True, True, False])
-
-# Fill in label column of device info table in ppt
-i = 1
-for item in sorted(sorted_data['Label'].unique()):
-    table.cell(i, 0).text = f'{item}'
-    i += 1
-
-# Filter data
-filtered_data = sorted_data[(sorted_data.Condition == 'Light')
-                            & (sorted_data.FF_int > 0.1) &
-                            (sorted_data.FF_int < 0.9) &
-                            (np.absolute(sorted_data.Jsc_int) > 0.01)]
-filtered_data_HL = sorted_data[(sorted_data.Condition == 'Light')
-                               & (sorted_data.FF_int > 0.1) &
-                               (sorted_data.FF_int < 0.9) &
-                               (np.absolute(sorted_data.Jsc_int) > 0.01) &
-                               (sorted_data.Scan_direction == 'HL')]
-filtered_data_LH = sorted_data[(sorted_data.Condition == 'Light')
-                               & (sorted_data.FF_int > 0.1) &
-                               (sorted_data.FF_int < 0.9) &
-                               (np.absolute(sorted_data.Jsc_int) > 0.01) &
-                               (sorted_data.Scan_direction == 'LH')]
-# filtered_data = filtered_data.drop_duplicates(['Label', 'Pixel'])
-filtered_data = filtered_data.drop_duplicates(
-    ['Label', 'Pixel', 'Scan_direction'])
-filtered_data_HL = filtered_data_HL.drop_duplicates(['Label', 'Pixel'])
-filtered_data_LH = filtered_data_LH.drop_duplicates(['Label', 'Pixel'])
-
-spo_data = data[(data.Condition == 'SPO')]
-
-# Drop pixels only working in one scan direction.
-# First get the inner merge of the Label and Pixel columns, i.e. drop rows
-# where label and pixel combination only occurs in one scan direction.
-filtered_data_HL_t = filtered_data_HL[['Label', 'Pixel']].merge(
-    filtered_data_LH[['Label', 'Pixel']], on=['Label', 'Pixel'], how='inner')
-filtered_data_LH_t = filtered_data_LH[['Label', 'Pixel']].merge(
-    filtered_data_HL[['Label', 'Pixel']], on=['Label', 'Pixel'], how='inner')
-
-# Then perform inner merge of full filtered data frames with the merged
-# label and pixel dataframes to get back all pixel data that work in both
-# scan directions
-filtered_data_HL = filtered_data_HL.merge(
-    filtered_data_HL_t, on=['Label', 'Pixel'], how='inner')
-filtered_data_LH = filtered_data_LH.merge(
-    filtered_data_LH_t, on=['Label', 'Pixel'], how='inner')
-
-# Calculate proportion of working pixels.
-# Create groups of all and working pixels from complete and filtered
-# dataframes.
-group_var_s = sorted_data.drop_duplicates(['Label', 'Pixel'])
-group_var_s = group_var_s.groupby(['Variable'])
-group_var_f = filtered_data_HL.drop_duplicates(['Label', 'Pixel'])
-group_var_f = group_var_f.groupby(['Variable'])
-print('Done')
-
-# # For each variable, if there are any working pixels for that variable
-# # calculate the yield for each value of the variable if there are any working
-# # pixels for that value. Else add zeros. Also, make a list of names
-# # for each variable to use as the x-axis on bar charts.
-# print('Calculating yields...', end='', flush=True)
-# yields_var = []
-# names_yield_var = []
-# for var_key in list(group_var_s.groups.keys()):
-#     group_val_s = group_var_s.get_group(var_key).groupby(['Value'])
-#     if var_key in list(group_var_f.groups.keys()):
-#         group_val_f = group_var_f.get_group(var_key).groupby(['Value'])
-#         yields_val = []
-#         names_yield_val = []
-#         for val_key in list(group_val_s.groups.keys()):
-#             names_yield_val.append(val_key)
-#             if val_key in list(group_val_f.groups.keys()):
-#                 yields_val.append(
-#                     len(group_val_f.get_group(val_key)) * 100 / len(
-#                         group_val_s.get_group(val_key)))
-#             else:
-#                 yields_val.append(0)
-#         yields_var.append(yields_val)
-#         names_yield_var.append(names_yield_val)
-#     else:
-#         yields_var.append([0] * len(group_val_s))
-#         names_yield_var.append(list(group_val_s.groups.keys()))
-
-# # For each variable, if there are any working pixels for that variable
-# # calculate the yield for each label if there are any working
-# # pixels for that label. Else add zeros. Also, make a list of names
-# # for each variable to use as the x-axis on bar charts.
-# yields_var_lab = []
-# names_yield_var_lab = []
-# for var_key in list(group_var_s.groups.keys()):
-#     group_lab_s = group_var_s.get_group(var_key).groupby(['Label'])
-#     if var_key in list(group_var_f.groups.keys()):
-#         group_lab_f = group_var_f.get_group(var_key).groupby(['Label'])
-#         yields_lab = []
-#         names_yield_lab = []
-#         for lab_key in list(group_lab_s.groups.keys()):
-#             names_yield_lab.append(lab_key)
-#             if lab_key in list(group_lab_f.groups.keys()):
-#                 yields_lab.append(
-#                     len(group_lab_f.get_group(lab_key)) * 100 / 8)
-#             else:
-#                 yields_lab.append(0)
-#         yields_var_lab.append(yields_lab)
-#         names_yield_var_lab.append(names_yield_lab)
-#     else:
-#         yields_var_lab.append([0] * len(group_lab_s))
-#         names_yield_var_lab.append(list(group_lab_s.groups.keys()))
-# print('Done')
-
-# # To generate box plots the data needs to be grouped first by variable
-# grouped_by_var_HL = filtered_data_HL.groupby('Variable')
-# grouped_by_var_LH = filtered_data_LH.groupby('Variable')
-
-print('Plotting boxplots and barcharts...', end='', flush=True)
 
 
 def plot_boxplots(df, params, kind, grouping, variable=''):
@@ -505,137 +171,269 @@ def plot_boxplots(df, params, kind, grouping, variable=''):
             height=height)
 
 
-# create boxplots for jv parameters
+# parse args
+args = parse()
+
+# Define folder and file paths
+log_filepath = args.log_filepath
+folderpath, log_filename = ntpath.split(log_filepath)
+folderpath_split = recursive_path_split(folderpath)
+if folderpath_split[-1] == 'LOGS':
+    raise ValueError('the log file must be in the same folder as the jv data!')
+
+# change cwd to same folder as log file
+os.chdir(folderpath)
+
+# Create folders for storing files generated during analysis
+print('Creating analysis folder...', end='', flush=True)
+analysis_folder = ntpath.join(folderpath, 'Analysis')
+image_folder = ntpath.join(analysis_folder, 'Figures')
+if os.path.exists(analysis_folder):
+    pass
+else:
+    os.makedirs(analysis_folder)
+if os.path.exists(image_folder):
+    pass
+else:
+    os.makedirs(image_folder)
+print('Done')
+
+# Get username, date, and title from folderpath for the ppt title page
+username = folderpath_split[-2]
+exp_date = time.strftime('%A %B %d %Y',
+                         time.localtime(os.path.getctime(log_filepath)))
+experiment_title = folderpath_split[-1]
+
+# Set physical constants
+kB = constants.Boltzmann
+q = constants.elementary_charge
+c = constants.speed_of_light
+h = constants.Planck
+T = 300
+
+# Read in data from JV log file
+print('Loading log file...', end='', flush=True)
+data = pd.read_csv(log_filepath, delimiter='\t', header=None)
+
+num_cols = len(data.columns)
+
+if num_cols == 13:
+    names = [
+        'Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo-PCE',
+        'Label', 'Variable', 'Value', 'Pixel', 'File_Path'
+    ]
+elif num_cols == 14:
+    names = [
+        'Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo-PCE',
+        'Label', 'Variable', 'Value', 'Pixel', 'Intensity', 'File_Path'
+    ]
+elif num_cols == 15:
+    names = [
+        'Jsc', 'PCE', 'Voc', 'FF', 'Vmp', 'Jspo', 'PCEspo', 'PCEspo-PCE',
+        'Label', 'Variable', 'Value', 'Pixel', 'Intensity', 'Assumed_Eg',
+        'File_Path'
+    ]
+else:
+    raise ValueError(
+        f'expected 13, 14, or 15 columns in log file but received {num_cols}')
+
+data.columns = names
+print('Done')
+
+# Read scan numbers from file paths and add scan number column
+# to dataframe
+scan_num = []
+for path in data['File_Path']:
+    scan_i = path.find('scan', len(path) - 12)
+    scan_n = path[scan_i:].strip('scan').strip('_')
+    scan_n = scan_n.strip('.liv1')
+    scan_n = scan_n.strip('.liv2')
+    scan_n = scan_n.strip('.div1')
+    scan_n = scan_n.strip('.div2')
+    scan_n = scan_n.strip('.hold')
+    scan_num.append(scan_n)
+data['scan_num'] = pd.Series(scan_num, index=data.index)
+
+# Create a powerpoint presentation to add figures to.
+print('Creating powerpoint file...', end='', flush=True)
+prs = Presentation()
+
+# Add title page with experiment title, date, and username.
+title_slide_layout = prs.slide_layouts[0]
+slide = prs.slides.add_slide(title_slide_layout)
+title = slide.shapes.title
+subtitle = slide.placeholders[1]
+title.text = experiment_title
+subtitle.text = f'{exp_date}\n{username}'
+
+# Add slide with table for manual completion of experimental details.
+blank_slide_layout = prs.slide_layouts[6]
+slide = prs.slides.add_slide(blank_slide_layout)
+shapes = slide.shapes
+rows = 17
+cols = 6
+left = Inches(0.15)
+top = Inches(0.02)
+width = prs.slide_width - Inches(0.25)
+height = prs.slide_height - Inches(0.05)
+table = shapes.add_table(rows, cols, left, top, width, height).table
+
+# set column widths
+table.columns[0].width = Inches(0.8)
+table.columns[1].width = Inches(1.2)
+table.columns[2].width = Inches(2.0)
+table.columns[3].width = Inches(2.0)
+table.columns[4].width = Inches(2.0)
+table.columns[5].width = Inches(1.7)
+
+# write column headings
+table.cell(0, 0).text = 'Label'
+table.cell(0, 1).text = 'Substrate'
+table.cell(0, 2).text = 'Bottom contact'
+table.cell(0, 3).text = 'Perovskite'
+table.cell(0, 4).text = 'Top contact'
+table.cell(0, 5).text = 'Top electrode'
+
+# Define dimensions used for adding images to slides
+A4_height = 7.5
+A4_width = 10
+height = prs.slide_height * 0.95 / 2
+width = prs.slide_width * 0.95 / 2
+
+# Create dictionaries that define where to put images on slides in the ppt
+lefts = {
+    '0': Inches(0),
+    '1': prs.slide_width - width,
+    '2': Inches(0),
+    '3': prs.slide_width - width
+}
+tops = {
+    '0': prs.slide_height * 0.05,
+    '1': prs.slide_height * 0.05,
+    '2': prs.slide_height - height,
+    '3': prs.slide_height - height
+}
+print('Done')
+
+# perform extra analysis and create new series for the dataframe
+print('Performing additional JV analysis...')
+area_lst = []
+scan_direction_lst = []
+condition_lst = []
+jsc_int_lst = []
+voc_int_lst = []
+ff_int_lst = []
+pce_int_lst = []
+vmp_int_lst = []
+jmp_int_lst = []
+rs_grad_lst = []
+rsh_grad_lst = []
+rel_path_lst = []
+for i in range(len(data['File_Path'])):
+    filepath = data['File_Path'][i]
+    params = rgl.extra_JV_analysis(filepath)
+    area_lst.append(params[0])
+    scan_direction_lst.append(params[1])
+    condition_lst.append(params[2])
+    jsc_int_lst.append(params[3])
+    voc_int_lst.append(params[4])
+    ff_int_lst.append(params[5])
+    pce_int_lst.append(params[6])
+    vmp_int_lst.append(params[7])
+    jmp_int_lst.append(params[8])
+    rs_grad_lst.append(params[9])
+    rsh_grad_lst.append(params[10])
+    rel_path_lst.append(params[11])
+
+# Add new series to the dataframe
+data['Area'] = pd.Series(area_lst, index=data.index)
+data['Scan_direction'] = pd.Series(scan_direction_lst, index=data.index)
+data['Condition'] = pd.Series(condition_lst, index=data.index)
+data['Jsc_int'] = pd.Series(jsc_int_lst, index=data.index)
+data['Voc_int'] = pd.Series(voc_int_lst, index=data.index)
+data['FF_int'] = pd.Series(ff_int_lst, index=data.index)
+data['PCE_int'] = pd.Series(pce_int_lst, index=data.index)
+data['Vmp_int'] = pd.Series(vmp_int_lst, index=data.index)
+data['Jmp_int'] = pd.Series(jmp_int_lst, index=data.index)
+data['Rs_grad'] = pd.Series(rs_grad_lst, index=data.index)
+data['Rsh_grad'] = pd.Series(rsh_grad_lst, index=data.index)
+data['Rel_Path'] = pd.Series(rel_path_lst, index=data.index)
+print('Done')
+
+# Sort data
+print('Sorting and filtering data...', end='', flush=True)
+sorted_data = data.sort_values(
+    ['Variable', 'Value', 'Label', 'Pixel', 'PCE_int'],
+    ascending=[True, True, True, True, False])
+
+# Fill in label column of device info table in ppt
+i = 1
+for item in sorted(sorted_data['Label'].unique()):
+    table.cell(i, 0).text = f'{item}'
+    i += 1
+
+# Filter data
+filtered_data = sorted_data[(sorted_data.Condition == 'Light')
+                            & (sorted_data.FF_int > 0.1) &
+                            (sorted_data.FF_int < 0.9) &
+                            (np.absolute(sorted_data.Jsc_int) > 0.01)]
+filtered_data_HL = sorted_data[(sorted_data.Condition == 'Light')
+                               & (sorted_data.FF_int > 0.1) &
+                               (sorted_data.FF_int < 0.9) &
+                               (np.absolute(sorted_data.Jsc_int) > 0.01) &
+                               (sorted_data.Scan_direction == 'HL')]
+filtered_data_LH = sorted_data[(sorted_data.Condition == 'Light')
+                               & (sorted_data.FF_int > 0.1) &
+                               (sorted_data.FF_int < 0.9) &
+                               (np.absolute(sorted_data.Jsc_int) > 0.01) &
+                               (sorted_data.Scan_direction == 'LH')]
+filtered_data = filtered_data.drop_duplicates(
+    ['Label', 'Pixel', 'Scan_direction'])
+spo_data = data[(data.Condition == 'SPO')]
+filtered_data_HL = filtered_data_HL.drop_duplicates(['Label', 'Pixel'])
+filtered_data_LH = filtered_data_LH.drop_duplicates(['Label', 'Pixel'])
+
+# Drop pixels only working in one scan direction.
+# First get the inner merge of the Label and Pixel columns, i.e. drop rows
+# where label and pixel combination only occurs in one scan direction.
+filtered_data_HL_t = filtered_data_HL[['Label', 'Pixel']].merge(
+    filtered_data_LH[['Label', 'Pixel']], on=['Label', 'Pixel'], how='inner')
+filtered_data_LH_t = filtered_data_LH[['Label', 'Pixel']].merge(
+    filtered_data_HL[['Label', 'Pixel']], on=['Label', 'Pixel'], how='inner')
+
+# Then perform inner merge of full filtered data frames with the merged
+# label and pixel dataframes to get back all pixel data that work in both
+# scan directions
+filtered_data_HL = filtered_data_HL.merge(
+    filtered_data_HL_t, on=['Label', 'Pixel'], how='inner')
+filtered_data_LH = filtered_data_LH.merge(
+    filtered_data_LH_t, on=['Label', 'Pixel'], how='inner')
+print('Done')
+
+print('Plotting boxplots and barcharts...', end='', flush=True)
 jv_params = [
     'Jsc_int', 'Voc_int', 'FF_int', 'PCE_int', 'Vmp_int', 'Jmp_int', 'Rs_grad',
     'Rsh_grad'
 ]
 spo_params = ['Jspo', 'PCEspo', 'PCEspo-PCE']
 
-# create boxplots
+# create boxplots for jv and spo parameters grouped by label
 plot_boxplots(filtered_data, jv_params, 'J-V', 'Label')
 plt.close('all')
 plot_boxplots(spo_data, spo_params, 'SPO', 'Label')
 plt.close('all')
 
+# create boxplots for jv and spo parameters grouped by variable value
 grouped_filtered_data = filtered_data.groupby(['Variable'])
 grouped_spo_data = spo_data.groupby(['Variable'])
 for name, group in grouped_filtered_data:
     plot_boxplots(group, jv_params, 'J-V', 'Value', name)
     plt.close('all')
-
 for name, group in grouped_spo_data:
     plot_boxplots(group, spo_params, 'SPO', 'Value', name)
     plt.close('all')
 
-# for ix, p in enumerate(jv_params):
-#     # create a new slide for every 4 plots
-#     if ix % 4 == 0:
-#         data_slide = rgl.title_image_slide(
-#             prs, f'J-V Parameters, page {int(ix / 4)}')
-#
-#     # create boxplot
-#     fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
-#     sns.boxplot(
-#         x=filtered_data['Label'],
-#         y=np.absolute(filtered_data[p]),
-#         hue=filtered_data['Scan_direction'],
-#         palette='deep',
-#         linewidth=0.5,
-#         ax=ax,
-#         showfliers=False)
-#     sns.swarmplot(
-#         x=filtered_data['Label'],
-#         y=np.absolute(filtered_data[p]),
-#         hue=filtered_data['Scan_direction'],
-#         palette='muted',
-#         size=3,
-#         linewidth=0.5,
-#         edgecolor='gray',
-#         dodge=True,
-#         ax=ax)
-#     handles, labels = ax.get_legend_handles_labels()
-#     ax.legend(handles[:2], labels[:2], fontsize='xx-small')
-#     ax.set_xticklabels(
-#         ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
-#     ax.set_xlabel('')
-#     if p in ['Jsc_int', 'Voc_int', 'PCE_int', 'Vmp_int', 'Jmp_int']:
-#         ax.set_ylim(0)
-#         if p == 'Jsc_int':
-#             ax.set_ylabel('Jsc (mA/cm^2)')
-#         elif p == 'Voc_int':
-#             ax.set_ylabel('Voc (V)')
-#         elif p == 'PCE_int':
-#             ax.set_ylabel('PCE (%)')
-#         elif p == 'Vmp_int':
-#             ax.set_ylabel('Vmp (V)')
-#         elif p == 'Jmp_int':
-#             ax.set_ylabel('Jmp (mA/cm^2)')
-#     elif p == 'FF_int':
-#         ax.set_ylim((0, 1))
-#         ax.set_ylabel('FF')
-#     elif p in ['Rs_grad', 'Rsh_grad']:
-#         ax.set_yscale('log')
-#         if p == 'Rs_grad':
-#             ax.set_ylabel('Rs (ohms)')
-#         elif p == 'Rsh_grad':
-#             ax.set_ylabel('Rsh (ohms)')
-#     fig.tight_layout()
-#
-#     # save figure and add to powerpoint
-#     image_path = ntpath.join(image_folder, f'boxplot_{p}.png')
-#     fig.savefig(image_path)
-#     data_slide.shapes.add_picture(
-#         image_path,
-#         left=lefts[str(ix % 4)],
-#         top=tops[str(ix % 4)],
-#         height=height)
-#
-# # create boxplots for spo parameters
-# spo_params = ['Jspo', 'PCEspo', 'PCEspo-PCE']
-# for ix, p in enumerate(spo_params):
-#     # create a new slide
-#     if ix % 4 == 0:
-#         data_slide = rgl.title_image_slide(prs, f'SPO Parameters')
-#
-#     # create boxplot
-#     fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
-#     sns.boxplot(
-#         x=spo_data['Label'],
-#         y=np.absolute(spo_data[p]),
-#         palette='deep',
-#         linewidth=0.5,
-#         ax=ax,
-#         showfliers=False)
-#     sns.swarmplot(
-#         x=spo_data['Label'],
-#         y=np.absolute(spo_data[p]),
-#         palette='muted',
-#         size=3,
-#         linewidth=0.5,
-#         edgecolor='gray',
-#         dodge=True,
-#         ax=ax)
-#     handles, labels = ax.get_legend_handles_labels()
-#     ax.legend(handles[:2], labels[:2], fontsize='xx-small')
-#     ax.set_xticklabels(
-#         ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
-#     ax.set_xlabel('')
-#     if p == 'Jspo':
-#         ax.set_ylabel('Jspo (mA/cm^2)')
-#     elif p == 'PCEspo':
-#         ax.set_ylabel('PCEspo (%)')
-#     ax.set_ylim(0)
-#     fig.tight_layout()
-#
-#     # save figure and add to powerpoint
-#     image_path = ntpath.join(image_folder, f'boxplot_{p}.png')
-#     fig.savefig(image_path)
-#     data_slide.shapes.add_picture(
-#         image_path, left=lefts[str(ix)], top=tops[str(ix)], height=height)
-
 # create countplots for yields
-# create new slide
 data_slide = rgl.title_image_slide(prs, f'Yields, page 0')
 
 # create countplot
@@ -695,91 +493,10 @@ for name, group in grouped_filtered_data:
         image_path, left=lefts[str(ix % 4)], top=tops[str(ix % 4)], height=height)
 
     ix += 1
-
-
-# # Then it needs to be grouped by variable value. Each of these groupings is
-# # appended to a list that is iterated upon later to generate the plots.
-# # Create variables holding a dictionary for accessing lists of data for
-# # boxplots.
-# boxplotdata_HL = rgl.boxplotdata(grouped_by_var_HL)
-# boxplotdata_LH = rgl.boxplotdata(grouped_by_var_LH)
-#
-# # Iterate through the lists of grouped data to produce boxplots. Each plot
-# # will contain all data from all values of a variable including a 'Control'
-# # sample if one is given. Multiple plots are created if there is more than
-# # one variable.
-# print('Plotting boxplots and barcharts...', end='', flush=True)
-# for i in range(len(boxplotdata_HL['var_names'])):
-#     if boxplotdata_HL['var_names'][i] != 'Control':
-#         for j in range(len(boxplotdata_HL['names_var'])):
-#             if boxplotdata_HL['names_var'][j][0] == 'Control':
-#                 boxplotdata_HL['names_var'][i].append(
-#                     boxplotdata_HL['names_var'][j][0])
-#                 boxplotdata_HL['Jsc_var'][i].append(
-#                     boxplotdata_HL['Jsc_var'][j][0])
-#                 boxplotdata_HL['Voc_var'][i].append(
-#                     boxplotdata_HL['Voc_var'][j][0])
-#                 boxplotdata_HL['FF_var'][i].append(
-#                     boxplotdata_HL['FF_var'][j][0])
-#                 boxplotdata_HL['PCE_var'][i].append(
-#                     boxplotdata_HL['PCE_var'][j][0])
-#                 boxplotdata_HL['Rs_var'][i].append(
-#                     boxplotdata_HL['Rs_var'][j][0])
-#                 boxplotdata_HL['Rsh_var'][i].append(
-#                     boxplotdata_HL['Rsh_var'][j][0])
-#
-#         # Build a list of x values for scatter plots that will overlay
-#         # boxplots.
-#         x = []
-#         for k in range(1, 1 + len(boxplotdata_HL['names_var'][i])):
-#             x.extend([k] * len(boxplotdata_HL['Jsc_var'][i][k - 1]))
-#
-#         # Create new slide and box plots for PV parameters, save figures,
-#         # and add them to the new slide
-#         data_slide = rgl.title_image_slide(
-#             prs, boxplotdata_HL['var_names'][i] + ' basic parameters')
-#         params = ['Jsc', 'Voc', 'FF', 'PCE']
-#         for ix, p in enumerate(params):
-#             image_path = image_folder + 'boxplot_' + p + '.png')
-#             rgl.create_save_boxplot(p, boxplotdata_HL, boxplotdata_LH, i, x,
-#                                     image_path)
-#             data_slide.shapes.add_picture(
-#                 image_path,
-#                 left=lefts[str(ix)],
-#                 top=tops[str(ix)],
-#                 height=height)
-#
-#         # Create new slide, box plots, and bar charts for parameters, save
-#         # figures and add them to the new slide
-#         data_slide = rgl.title_image_slide(
-#             prs, boxplotdata_HL['var_names'][i] +
-#             ' series and shunt resistances; yields')
-#         params = ['Rs', 'Rsh', 'yields_var', 'yields_var_lab']
-#         for ix, p in enumerate(params):
-#             if p.find('yield') == -1:
-#                 image_path = image_folder + 'boxplot_' + p + '.png')
-#                 rgl.create_save_boxplot(p, boxplotdata_HL, boxplotdata_LH, i,
-#                                         x, image_path)
-#             elif p == 'yields_var':
-#                 image_path = image_folder + 'barchart_' + p + '.png')
-#                 rgl.create_save_barchart(yields_var, names_yield_var, i,
-#                                          image_path)
-#             elif p == 'yields_var_lab':
-#                 image_path = image_folder + 'barchart_' + p + '.png')
-#                 rgl.create_save_barchart(yields_var_lab, names_yield_var_lab,
-#                                          i, image_path)
-#             data_slide.shapes.add_picture(
-#                 image_path,
-#                 left=lefts[str(ix)],
-#                 top=tops[str(ix)],
-#                 height=height)
-#
-# # Clear all figures from memory
-# plt.close('all')
 print('Done')
 
-# Group data by label and sort ready to plot graph of all pixels per substrate
 print('Plotting JV curves...', end='', flush=True)
+# Group data by label and sort ready to plot graph of all pixels per substrate
 re_sort_data = filtered_data.sort_values(
     ['Label', 'Pixel'], ascending=[True, True])
 grouped_by_label = re_sort_data.groupby('Label')
@@ -816,6 +533,7 @@ for name, group in grouped_by_label:
     max_group_jmp = np.max(np.absolute(group['Jmp_int']))
     max_group_voc = np.max(np.absolute(group['Voc_int']))
 
+    # find sign of jmp to determine max and min axis limits
     signs, counts = np.unique(np.sign(group['Jmp_int']), return_counts=True)
     if len(signs) == 1:
         sign = signs[0]
@@ -823,7 +541,7 @@ for name, group in grouped_by_label:
         ix = np.argmax(counts)
         sign = signs[ix]
 
-    # Import data for each pixel and plot on axes
+    # load data for each pixel and plot on axes
     j = 0
     for file, scan_dir in zip(group['Rel_Path'], group['Scan_direction']):
         if scan_dir == 'LH':
