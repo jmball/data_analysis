@@ -1,13 +1,13 @@
 missing module named System - imported by traitlets.traitlets
-missing module named __builtin__ - imported by numpy.core.numerictypes, numpy.core.numeric, scipy._lib.six, numpy.distutils.misc_util, numpy.lib.function_base, numpy.lib._iotools, numpy.ma.core, numpy, pyparsing, PIL.Image, tornado.gen, pandas.compat, wx.py.sliceshell, ipython_genutils.py3compat, pkg_resources._vendor.pyparsing
-missing module named StringIO - imported by six, numpy.lib.utils, numpy.testing.nose_tools.utils, scipy._lib.six, PyInstaller.lib.modulegraph._compat, PyInstaller.lib.modulegraph.zipio, numpy.lib.format, pandas.compat, xlsxwriter.compatibility, pptx.compat.python2, pkg_resources._vendor.six
+missing module named __builtin__ - imported by numpy.core.numerictypes, numpy.core.numeric, scipy._lib.six, numpy.distutils.misc_util, numpy.lib.function_base, numpy.lib._iotools, numpy.ma.core, numpy, pyparsing, PIL.Image, tornado.gen, pandas.compat, ipython_genutils.py3compat, wx.py.sliceshell, pkg_resources._vendor.pyparsing
+missing module named StringIO - imported by six, numpy.lib.utils, numpy.testing.nose_tools.utils, scipy._lib.six, PyInstaller.lib.modulegraph._compat, PyInstaller.lib.modulegraph.zipio, numpy.lib.format, pandas.compat, xlsxwriter.compatibility, seaborn.external.six, pptx.compat.python2, pkg_resources._vendor.six
 missing module named 'win32com.gen_py' - imported by win32com, c:\users\ball\appdata\local\continuum\anaconda3\envs\gooey-test\lib\site-packages\PyInstaller\loader\rthooks\pyi_rth_win32comgenpy.py
 missing module named 'lib2to3.refactor' - imported by distutils.util
 missing module named pyimod03_importers - imported by PyInstaller.loader.pyimod02_archive, c:\users\ball\appdata\local\continuum\anaconda3\envs\gooey-test\lib\site-packages\PyInstaller\loader\rthooks\pyi_rth_pkgres.py
-missing module named ordereddict - imported by pyparsing, pkg_resources._vendor.pyparsing
-missing module named 'pkg_resources.extern.pyparsing' - imported by pkg_resources._vendor.packaging.markers, pkg_resources._vendor.packaging.requirements
+missing module named 'pkg_resources.extern.pyparsing' - imported by pkg_resources._vendor.packaging.requirements, pkg_resources._vendor.packaging.markers
 missing module named 'com.sun' - imported by pkg_resources._vendor.appdirs
 missing module named com - imported by pkg_resources._vendor.appdirs
+missing module named ordereddict - imported by pyparsing, pkg_resources._vendor.pyparsing
 missing module named _scproxy - imported by urllib.request
 missing module named 'macholib.compat' - imported by macholib.MachO
 missing module named _pkgutil - imported by PyInstaller.lib.modulegraph.modulegraph
@@ -51,8 +51,8 @@ missing module named urllib.quote - imported by urllib, jinja2._compat
 missing module named urllib.urlencode - imported by urllib, tornado.httputil, tornado.web, pandas.io.common, lxml.html
 missing module named grp - imported by shutil, tarfile, pathlib, distutils.archive_util, H:\Git\data_analysis\data_analysis.py
 missing module named pwd - imported by posixpath, shutil, tarfile, http.server, webbrowser, pathlib, psutil, distutils.util, distutils.archive_util, netrc, getpass, H:\Git\data_analysis\data_analysis.py
-missing module named org - imported by copy, H:\Git\data_analysis\data_analysis.py
 missing module named _dummy_threading - imported by dummy_threading, H:\Git\data_analysis\data_analysis.py
+missing module named org - imported by copy, H:\Git\data_analysis\data_analysis.py
 missing module named Carbon - imported by wx.lib.colourutils
 missing module named psutil._psutil_aix - imported by psutil, psutil._psaix
 missing module named psutil._psutil_sunos - imported by psutil, psutil._pssunos
@@ -62,14 +62,11 @@ missing module named _psutil_linux - imported by psutil
 missing module named psutil._psutil_posix - imported by psutil, psutil._pslinux, psutil._psosx, psutil._psbsd, psutil._pssunos, psutil._psaix
 missing module named 'Carbon.Appearance' - imported by wx.lib.agw.aui.aui_utilities, wx.lib.agw.aui.tabart
 runtime module named six.moves - imported by matplotlib.cbook, matplotlib.backend_bases, matplotlib.colors, matplotlib.textpath, matplotlib.hatch, matplotlib.afm, matplotlib.font_manager, matplotlib.patches, matplotlib.markers, matplotlib.text, matplotlib.axes._subplots, cycler, matplotlib.colorbar, matplotlib.collections, matplotlib.contour, matplotlib.dviread, matplotlib.offsetbox, 'six.moves.urllib', matplotlib.dates, dateutil.rrule, dateutil.tz.tz, dateutil.tz.win, matplotlib.backends.backend_svg, matplotlib.legend_handler, matplotlib.mlab, matplotlib.tri.triinterpolate, matplotlib.widgets, matplotlib.axes._axes, matplotlib.stackplot, matplotlib.streamplot, matplotlib.table, matplotlib.axes._base, matplotlib, html5lib._inputstream, html5lib.filters.sanitizer, wx.py.interpreter, wx.py.shell, matplotlib.backends.tkagg, matplotlib.backends._backend_tk, matplotlib.backends.backend_wx, matplotlib.backends.backend_ps
-missing module named 'tkinter.filedialog' - imported by 'tkinter.filedialog'
-missing module named 'tkinter.messagebox' - imported by 'tkinter.messagebox'
-excluded module named tkinter - imported by ipykernel.eventloops, tkinter
 missing module named six.moves.range - imported by six.moves, dateutil.rrule
 missing module named six.moves.map - imported by six.moves, matplotlib.afm, matplotlib.patches, matplotlib.axes._subplots, matplotlib.mlab
 missing module named six.moves.zip - imported by six.moves, matplotlib.cbook, matplotlib.colors, matplotlib.textpath, matplotlib.patches, matplotlib.text, cycler, matplotlib.colorbar, matplotlib.collections, matplotlib.offsetbox, matplotlib.dates, matplotlib.legend_handler, matplotlib.mlab, matplotlib.widgets, matplotlib.axes._axes
 missing module named six.moves.xrange - imported by six.moves, matplotlib.cbook, matplotlib.backend_bases, matplotlib.hatch, matplotlib.markers, matplotlib.colorbar, matplotlib.contour, matplotlib.dviread, matplotlib.offsetbox, matplotlib.backends.backend_svg, matplotlib.mlab, matplotlib.tri.triinterpolate, matplotlib.axes._axes, matplotlib.stackplot, matplotlib.streamplot, matplotlib.table, matplotlib.axes._base, matplotlib.backends.backend_wx
-excluded module named Tkinter - imported by ipykernel.eventloops, PIL.ImageTk
+missing module named Tkinter - imported by ipykernel.eventloops, PIL.ImageTk
 missing module named 'PySide.QtCore' - imported by PIL.ImageQt
 missing module named 'PyQt4.QtCore' - imported by PIL.ImageQt
 missing module named 'PyQt5.QtCore' - imported by PIL.ImageQt
@@ -107,7 +104,7 @@ missing module named numpy.lib.i0 - imported by numpy.lib, numpy.dual
 missing module named numpy.lib.triu - imported by numpy.lib, numpy.linalg.linalg
 missing module named numpy.core.signbit - imported by numpy.core, numpy.testing.nose_tools.utils
 missing module named numpy.core.float64 - imported by numpy.core, numpy.testing.nose_tools.utils
-missing module named nose - imported by numpy.testing.nose_tools.utils, numpy.testing.nose_tools.decorators, numpy.testing.nose_tools.noseclasses
+missing module named nose - imported by numpy.testing.nose_tools.utils, numpy.testing.nose_tools.decorators, numpy.testing.nose_tools.noseclasses, seaborn.utils
 missing module named numpy.core.float32 - imported by numpy.core, numpy.testing.nose_tools.utils
 missing module named numpy.core.divide - imported by numpy.core, numpy.linalg.linalg
 missing module named numpy.core.object_ - imported by numpy.core, numpy.linalg.linalg
@@ -229,20 +226,20 @@ missing module named 'zmq.utils' - imported by jupyter_client.session
 missing module named _subprocess - imported by jupyter_client.launcher, ipykernel.parentpoller
 missing module named netifaces - imported by jupyter_client.localinterfaces
 missing module named 'zmq.ssh' - imported by jupyter_client.connect
-missing module named 'IPython.utils' - imported by matplotlib, jupyter_client.kernelspec, ipykernel.kernelapp, ipykernel.ipkernel, ipykernel.zmqshell, ipykernel.eventloops
+missing module named 'IPython.utils' - imported by matplotlib, jupyter_client.kernelspec, ipykernel.kernelapp, ipykernel.ipkernel, ipykernel.zmqshell, ipykernel.eventloops, ipywidgets.widgets.interaction
 missing module named 'zmq.eventloop' - imported by jupyter_client.session, ipykernel.kernelapp, ipykernel.iostream, ipykernel.kernelbase
 excluded module named zmq - imported by jupyter_client.connect, jupyter_client.session, jupyter_client.channels, jupyter_client.client, jupyter_client.manager, jupyter_client.blocking.client, jupyter_client.multikernelmanager, ipykernel.kernelapp, ipykernel.iostream, ipykernel.heartbeat, ipykernel.kernelbase, ipykernel.eventloops
-excluded module named IPython - imported by matplotlib.pyplot, pandas.io.formats.printing, pandas.io.formats.format, jupyter_client.blocking.client
+excluded module named IPython - imported by matplotlib.pyplot, pandas.io.formats.printing, pandas.io.formats.format, ipywidgets, jupyter_client.blocking.client, ipywidgets.widgets.widget_output
 missing module named Queue - imported by jupyter_client.blocking.client, jupyter_client.blocking.channels
 missing module named 'IPython.paths' - imported by ipykernel.connect, jupyter_client.kernelspec
-missing module named 'IPython.core' - imported by matplotlib.pyplot, pandas.io.formats.printing, pandas.util.testing, ipykernel.connect, ipykernel.kernelapp, ipykernel.ipkernel, ipykernel.kernelbase, ipykernel.zmqshell, ipykernel.displayhook
+missing module named 'IPython.core' - imported by matplotlib.pyplot, pandas.io.formats.printing, pandas.util.testing, ipywidgets.widgets.widget, ipykernel.connect, ipykernel.kernelapp, ipykernel.ipkernel, ipykernel.kernelbase, ipykernel.zmqshell, ipykernel.displayhook, ipywidgets.widgets.widget_output, ipywidgets.widgets.interaction, ipykernel.pylab.backend_inline, ipykernel.pylab.config
 missing module named cloudpickle - imported by ipykernel.pickleutil
 missing module named dill - imported by ipykernel.pickleutil
 missing module named 'ipyparallel.serialize' - imported by ipykernel.pickleutil
 missing module named ipykernel.connect_qtconsole - imported by ipykernel, ipykernel.zmqshell
 missing module named ipykernel.get_connection_info - imported by ipykernel, ipykernel.zmqshell
 missing module named ipykernel.get_connection_file - imported by ipykernel, ipykernel.zmqshell
-missing module named 'IPython.display' - imported by matplotlib.backends.backend_nbagg, ipykernel.zmqshell
+missing module named 'IPython.display' - imported by ipykernel.zmqshell, ipywidgets.widgets.widget, ipywidgets.widgets.widget_output, ipywidgets.widgets.interaction, matplotlib.backends.backend_nbagg
 missing module named matplotlib.axes.Axes - imported by matplotlib.axes, matplotlib.legend, matplotlib.pyplot, matplotlib.projections.geo, matplotlib.projections.polar, matplotlib.figure
 missing module named "'six.moves.urllib'.request" - imported by matplotlib.image, matplotlib
 missing module named "'six.moves.urllib'.parse" - imported by matplotlib.image, matplotlib.textpath
@@ -251,6 +248,17 @@ missing module named exceptions - imported by pptx.opc.phys_pkg
 missing module named matplotlib.tri.Triangulation - imported by matplotlib.tri, matplotlib.tri.trifinder, matplotlib.tri.tritools, matplotlib.tri.triinterpolate, matplotlib.mlab
 missing module named 'mpl_toolkits.natgrid' - imported by matplotlib.mlab
 missing module named matplotlib.axes.Subplot - imported by matplotlib.axes, matplotlib.pyplot, pandas.plotting._core
+missing module named mock - imported by matplotlib, pandas.util.testing
+missing module named 'IPython.html' - imported by seaborn.widgets
+missing module named fastcluster - imported by seaborn.matrix
+missing module named 'statsmodels.nonparametric' - imported by seaborn.distributions, seaborn.regression
+missing module named 'seaborn.external.six.moves' - imported by seaborn.palettes, seaborn.utils, seaborn.regression, seaborn.algorithms, seaborn.categorical
+missing module named 'statsmodels.regression' - imported by seaborn.regression
+missing module named 'statsmodels.formula' - imported by seaborn.regression
+missing module named 'statsmodels.robust' - imported by seaborn.regression
+missing module named 'statsmodels.genmod' - imported by seaborn.regression
+missing module named statsmodels - imported by seaborn.regression
+missing module named bs4 - imported by pandas.io.html, seaborn.utils
 missing module named s3fs - imported by pandas.io.s3, pandas.io.common
 missing module named py - imported by pandas.io.common
 missing module named 'PyQt4.QtGui' - imported by matplotlib.pyplot, pandas.io.clipboard.clipboards
@@ -280,7 +288,6 @@ missing module named __pypy__ - imported by jinja2.debug
 missing module named bottleneck - imported by pandas.core.nanops
 missing module named xarray - imported by pandas.core.generic
 missing module named pudb - imported by pandas.util.testing
-missing module named mock - imported by matplotlib, pandas.util.testing
 missing module named 'py.path' - imported by pandas.util.testing
 missing module named cssselect - imported by lxml.cssselect
 missing module named 'genshi.core' - imported by html5lib.treewalkers.genshi
@@ -288,7 +295,6 @@ missing module named genshi - imported by html5lib.treewalkers.genshi
 missing module named datrie - imported by html5lib._trie.datrie
 missing module named chardet - imported by html5lib._inputstream
 missing module named 'six.moves.urllib' - imported by 'six.moves.urllib'
-missing module named bs4 - imported by pandas.io.html
 missing module named simplejson - imported by pandas.util._print_versions
 missing module named pandas.factorize - imported by pandas, pandas.core.util.hashing
 missing module named pandas.option_context - imported by pandas, pandas.io.clipboards

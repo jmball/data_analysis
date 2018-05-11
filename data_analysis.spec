@@ -16,7 +16,7 @@ site_pkgs = site.getsitepackages()[1]
 pptx_templates = os.path.join(site_pkgs, r'pptx\templates\default.pptx')
 scipy_dlls = os.path.join(site_pkgs, r'scipy\extra-dll')
 
-sys.modules['FixTk'] = None
+# sys.modules['FixTk'] = None
 
 block_cipher = None
 
@@ -26,19 +26,36 @@ a = Analysis(['data_analysis.py'],
              hiddenimports=[],
              hookspath=None,
              runtime_hooks=None,
-             excludes=['pyqt',
+             excludes=['jedi',
+                       'pyqt',
                        'PyQt5',
                        'lib2to3',
-                       'FixTk',
                        'tcl',
-                       'tk',
-                       '_tkinter',
-                       'tkinter',
-                       'Tkinter',
                        'zmq',
                        'pyzmq',
                        'IPython']
              )
+
+#a = Analysis(['data_analysis.py'],
+#             datas=[(pptx_templates, '.\\pptx\\templates\\')],
+#             pathex=[scipy_dlls],
+#             hiddenimports=[],
+#             hookspath=None,
+#             runtime_hooks=None,
+#             excludes=['jedi',
+#                       'pyqt',
+#                       'PyQt5',
+#                       'lib2to3',
+#                       'FixTk',
+#                       'tcl',
+#                       'tk',
+#                       '_tkinter',
+#                       'tkinter',
+#                       'Tkinter',
+#                       'zmq',
+#                       'pyzmq',
+#                       'IPython']
+#             )
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
