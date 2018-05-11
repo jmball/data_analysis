@@ -245,6 +245,7 @@ vmp_int_lst = []
 jmp_int_lst = []
 rs_grad_lst = []
 rsh_grad_lst = []
+rel_path_lst = []
 for i in range(len(data['File_Path'])):
     filepath = data['File_Path'][i]
     # new_path = file.replace('\\', '\\\\')
@@ -261,6 +262,7 @@ for i in range(len(data['File_Path'])):
     jmp_int_lst.append(params[8])
     rs_grad_lst.append(params[9])
     rsh_grad_lst.append(params[10])
+    rel_path_lst.append(params[11])
 
 # Add new series to the dataframe
 data['Area'] = pd.Series(area_lst, index=data.index)
@@ -274,6 +276,7 @@ data['Vmp_int'] = pd.Series(vmp_int_lst, index=data.index)
 data['Jmp_int'] = pd.Series(jmp_int_lst, index=data.index)
 data['Rs_grad'] = pd.Series(rs_grad_lst, index=data.index)
 data['Rsh_grad'] = pd.Series(rsh_grad_lst, index=data.index)
+data['Rel_Path'] = pd.Series(rel_path_lst, index=data.index)
 print('Done')
 
 # Sort data
@@ -747,7 +750,7 @@ re_sort_data = filtered_data.sort_values(
 grouped_by_label = re_sort_data.groupby('Label')
 
 # Define a colormap for JV plots
-cmap = plt.cm.get_cmap('rainbow')
+cmap = plt.cm.get_cmap('viridis')
 
 # Create lists of varibales, values, and labels for labelling figures
 substrates = re_sort_data.drop_duplicates(['Label'])
@@ -772,52 +775,53 @@ for name, group in grouped_by_label:
         f'{labels[i]}, {variables[i]}, {values[i]}',
         fontdict={'fontsize': 'xx-small'})
 
-    c_div = 1 / len(group)
+    # get parameters for plot formatting
+    c_div = 1 / (len(group) / 2)
     pixels = list(group['Pixel'])
-    max_group_jsc = max(list(np.absolute(group['Jsc'])))
+    max_group_jsc = np.max(np.absolute(group['Jsc_int']))
+    max_group_voc = np.max(np.absolute(group['Voc_int']))
+
+    signs, counts = np.unique(np.sign(group['Jsc']), return_counts=True)
+    if len(signs) == 1:
+        sign = signs[0]
+    else:
+        ix = np.argmax(counts)
+        sign = signs[ix]
 
     # Import data for each pixel and plot on axes
     j = 0
-    for file, scan_dir in zip(group['File_Path'], group['Scan_direction']):
+    for file, scan_dir in zip(group['Rel_Path'], group['Scan_direction']):
         if scan_dir == 'LH':
-            data_LH_path = file
-            if file.endswith('liv1'):
-                data_HL_path = file.replace('liv1', 'liv2')
-            else:
-                data_HL_path = file.replace('liv2', 'liv1')
+            data_LH = np.genfromtxt(file, delimiter='\t')
+            data_LH = data_LH[~np.isnan(data_LH).any(axis=1)]
+            ax.plot(
+                data_LH[:, 0],
+                data_LH[:, 1],
+                label=pixels[j],
+                c=cmap(pixels[j] * c_div),
+                lw=2.0)
         elif scan_dir == 'HL':
-            data_HL_path = file
-            if file.endswith('liv1'):
-                data_LH_path = file.replace('liv1', 'liv2')
-            else:
-                data_LH_path = file.replace('liv2', 'liv1')
-
-        data_LH = np.genfromtxt(data_LH_path, delimiter='\t')
-        data_HL = np.genfromtxt(data_HL_path, delimiter='\t')
-        data_LH = data_LH[~np.isnan(data_LH).any(axis=1)]
-        data_HL = data_HL[~np.isnan(data_HL).any(axis=1)]
-
-        ax.plot(
-            data_LH[:, 0],
-            data_LH[:, 1],
-            label=pixels[j],
-            c=cmap(j * c_div),
-            lw=2.0)
-        ax.plot(data_HL[:, 0], data_HL[:, 1], c=cmap(j * c_div), lw=2.0)
+            data_HL = np.genfromtxt(file, delimiter='\t')
+            data_HL = data_HL[~np.isnan(data_HL).any(axis=1)]
+            ax.plot(data_HL[:, 0], data_HL[:, 1], c=cmap(pixels[j] * c_div), lw=2.0)
 
         j += 1
 
     # Format the axes
     ax.set_xlabel('Applied bias (V)')
     ax.set_ylabel('J (mA/cm^2)')
-    ax.set_xlim([np.min(data_HL[:, 0]), np.max(data_HL[:, 0])])
-    ax.set_ylim([-max_group_jsc * 1.1, max_group_jsc * 1.1])
+    if sign > 0:
+        ax.set_xlim([np.min(data_HL[:, 0]), max_group_voc + 0.25])
+        ax.set_ylim([-max_group_jsc * 2.2, max_group_jsc * 1.1])
+    else:
+        ax.set_xlim([-max_group_voc - 0.25, np.max(data_HL[:, 0])])
+        ax.set_ylim([-max_group_jsc * 1.1, max_group_jsc * 2.2])
 
     # Adjust plot width to add legend outside plot area
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
     handles, labs = ax.get_legend_handles_labels()
-    lgd = ax.legend(handles, labs, loc='upper left', bbox_to_anchor=(1, 1))
+    lgd = ax.legend(handles, labs, loc='upper left', bbox_to_anchor=(1, 1), fontsize='small')
 
     # Format the figure layout, save to file, and add to ppt
     image_path = ntpath.join(image_folder, f'jv_all_{labels[i]}.png')
@@ -852,7 +856,7 @@ jscs = list(np.absolute(best_pixels['Jsc']))
 # Loop for iterating through best pixels dataframe and picking out JV data
 # files. Each plot contains forward and reverse sweeps, both light and dark.
 i = 0
-for file, scan_dir in zip(best_pixels['File_Path'],
+for file, scan_dir in zip(best_pixels['Rel_Path'],
                           best_pixels['Scan_direction']):
     # Create a new slide after every four graphs are produced
     if i % 4 == 0:
@@ -1021,7 +1025,7 @@ for iHL, iLH in zip(group_by_label_pixel_HL.indices,
         # Open data files and plot a JV curve on the same axes for each scan
         j = 0
         for path_HL, path_LH, scan_rate_HL, scan_rate_LH, scan_num_HL, scan_num_LH in zip(
-                group_HL['File_Path'], group_LH['File_Path'],
+                group_HL['Rel_Path'], group_LH['Rel_Path'],
                 group_HL['Scan_rate'], group_LH['Scan_rate'],
                 group_HL['scan_num'], group_LH['scan_num']):
 
@@ -1085,7 +1089,7 @@ for index, row in spo_data.iterrows():
             prs, f'Stabilised power output, page {int(i / 4)}')
 
     # Open the data file
-    path = row['File_Path']
+    path = row['Rel_Path']
     spo = np.genfromtxt(path, delimiter='\t', skip_header=1, skip_footer=3)
     spo = spo[~np.isnan(spo).any(axis=1)]
 
@@ -1400,7 +1404,7 @@ try:
             # Open data files and plot a JV curve on the same axes for each scan
             j = 0
             for path_HL, path_LH, intensity_HL, intensity_LH in zip(
-                    group_HL['File_Path'], group_LH['File_Path'],
+                    group_HL['Rel_Path'], group_LH['Rel_Path'],
                     group_HL['Intensity'], group_LH['Intensity']):
 
                 data_HL = np.genfromtxt(path_HL, delimiter='\t')

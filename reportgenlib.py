@@ -53,7 +53,7 @@ def extra_JV_analysis(filepath):
     Parameters
     ----------
     filepath : str
-        full path to the data file
+        absolute path to the data file
 
     Returns
     -------
@@ -79,10 +79,13 @@ def extra_JV_analysis(filepath):
         series resistance derived from gradient at voc in ohms
     rsh_grad : float
         shunt resistance derived from gradient at jsc in ohms
+    rel_path : str
+        relative filepath
     """
 
     # get relative file path
     folder, filepath = ntpath.split(filepath)
+    rel_path = filepath
     print(filepath)
 
     # determine condition
@@ -171,7 +174,7 @@ def extra_JV_analysis(filepath):
 
     return [
         area, scan_direction, condition, jsc_int, voc_int, ff_int, pce_int,
-        vmp_int, jmp_int, rs_grad, rsh_grad
+        vmp_int, jmp_int, rs_grad, rsh_grad, rel_path
     ]
 
 
