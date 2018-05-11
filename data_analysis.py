@@ -666,6 +666,7 @@ data_slide.shapes.add_picture(
 # plot yields by variable
 ix = 1
 for name, group in grouped_filtered_data:
+    print(name)
     # create new slide if needed
     if ix % 4 == 0:
         data_slide = rgl.title_image_slide(prs, f'Yields, page {int(ix / 4)}')
@@ -691,9 +692,12 @@ for name, group in grouped_filtered_data:
 
     # save figure and add to powerpoint
     image_path = ntpath.join(image_folder, f'boxchart_yields_var{i}.png')
+    print(image_path)
     fig.savefig(image_path)
     data_slide.shapes.add_picture(
-        image_path, left=lefts[str(ix)], top=tops[str(ix)], height=height)
+        image_path, left=lefts[str(ix % 4)], top=tops[str(ix % 4)], height=height)
+
+    ix += 1
 
 
 # # Then it needs to be grouped by variable value. Each of these groupings is
