@@ -635,9 +635,9 @@ for name, group in grouped_spo_data:
 #     data_slide.shapes.add_picture(
 #         image_path, left=lefts[str(ix)], top=tops[str(ix)], height=height)
 
-# create countplot for yields
+# create countplots for yields
 # create new slide
-data_slide = rgl.title_image_slide(prs, f'Yields')
+data_slide = rgl.title_image_slide(prs, f'Yields, page 0')
 
 # create countplot
 fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
@@ -655,12 +655,46 @@ ax.set_xticklabels(
     ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
 ax.set_xlabel('')
 ax.set_ylabel('Number of working pixels')
+fig.tight_layout()
 
 # save figure and add to powerpoint
 image_path = ntpath.join(image_folder, f'boxchart_yields.png')
 fig.savefig(image_path)
 data_slide.shapes.add_picture(
     image_path, left=lefts[str(0)], top=tops[str(0)], height=height)
+
+# plot yields by variable
+ix = 1
+for name, group in grouped_filtered_data:
+    # create new slide if needed
+    if ix % 4 == 0:
+        data_slide = rgl.title_image_slide(prs, f'Yields, page {int(ix / 4)}')
+
+    # create count plot
+    fig, ax = plt.subplots(1, 1, **{'figsize': (A4_width / 2, A4_height / 2)})
+    ax.set_title(f'{name}', fontdict={'fontsize': 'small'})
+    sns.countplot(
+        x=group['Value'],
+        data=group,
+        hue=filtered_data['Scan_direction'],
+        linewidth=0.5,
+        palette='deep',
+        edgecolor='black',
+        ax=ax)
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles[:2], labels[:2], fontsize='xx-small')
+    ax.set_xticklabels(
+        ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
+    ax.set_xlabel('')
+    ax.set_ylabel('Number of working pixels')
+    fig.tight_layout()
+
+    # save figure and add to powerpoint
+    image_path = ntpath.join(image_folder, f'boxchart_yields_var{i}.png')
+    fig.savefig(image_path)
+    data_slide.shapes.add_picture(
+        image_path, left=lefts[str(ix)], top=tops[str(ix)], height=height)
+
 
 # # Then it needs to be grouped by variable value. Each of these groupings is
 # # appended to a list that is iterated upon later to generate the plots.
