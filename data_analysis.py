@@ -414,7 +414,10 @@ sorted_data = data.sort_values(['Label', 'Pixel', 'PCE_int'], ascending=[True, T
 # Fill in label column of device info table in ppt
 i = 1
 for item in sorted(sorted_data['Label'].unique()):
-    table.cell(i, 0).text = f'{item}'
+    try:
+        table.cell(i, 0).text = f'{item}'
+    except IndexError:
+        pass
     i += 1
 
 # Filter data
