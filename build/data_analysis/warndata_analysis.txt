@@ -4,9 +4,9 @@ missing module named StringIO - imported by six, numpy.lib.utils, numpy.testing.
 missing module named 'win32com.gen_py' - imported by win32com, c:\users\ball\appdata\local\continuum\anaconda3\envs\gooey-test\lib\site-packages\PyInstaller\loader\rthooks\pyi_rth_win32comgenpy.py
 missing module named 'lib2to3.refactor' - imported by distutils.util
 missing module named pyimod03_importers - imported by PyInstaller.loader.pyimod02_archive, c:\users\ball\appdata\local\continuum\anaconda3\envs\gooey-test\lib\site-packages\PyInstaller\loader\rthooks\pyi_rth_pkgres.py
-missing module named 'pkg_resources.extern.pyparsing' - imported by pkg_resources._vendor.packaging.requirements, pkg_resources._vendor.packaging.markers
 missing module named 'com.sun' - imported by pkg_resources._vendor.appdirs
 missing module named com - imported by pkg_resources._vendor.appdirs
+missing module named 'pkg_resources.extern.pyparsing' - imported by pkg_resources._vendor.packaging.requirements, pkg_resources._vendor.packaging.markers
 missing module named ordereddict - imported by pyparsing, pkg_resources._vendor.pyparsing
 missing module named _scproxy - imported by urllib.request
 missing module named 'macholib.compat' - imported by macholib.MachO
