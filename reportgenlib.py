@@ -153,24 +153,36 @@ def extra_JV_analysis(filepath):
         R = 1 / didv_sgfilter
 
         # create interpolation functions
-        f_j = interp1d(JV[:, 0], JV[:, 1], kind='cubic', bounds_error=False, fill_value=0)
-        f_v = interp1d(JV[:, 1], JV[:, 0], kind='cubic', bounds_error=False, fill_value=0)
-        f_p = interp1d(JV[:, 0], P, kind='cubic', bounds_error=False, fill_value=0)
-        f_dpdv = interp1d(dpdv, JV[:, 0], kind='cubic', bounds_error=False, fill_value=0)
-        f_r = interp1d(JV[:, 0], R, kind='cubic', bounds_error=False, fill_value=0)
-
-        # interpolate parameters
-        jsc_int = np.float64(f_j(0))
-        voc_int = np.float64(f_v(0))
-        vmp_int = np.float64(f_dpdv(0))
-        jmp_int = np.float64(f_j(vmp_int))
-        ff_int = jmp_int * vmp_int / (jsc_int * voc_int)
-        pmax = np.float64(f_p(vmp_int))
+        try:
+            f_j = interp1d(JV[:, 0], JV[:, 1], kind='cubic', bounds_error=False, fill_value=0)
+            jsc_int = np.float64(f_j(0))
+        except ValueError:
+            jsc_int = 0
+        try:
+            f_v = interp1d(JV[:, 1], JV[:, 0], kind='cubic', bounds_error=False, fill_value=0)
+            voc_int = np.float64(f_v(0))
+        except ValueError:
+            voc_int = 0
+        try:
+            f_p = interp1d(JV[:, 0], P, kind='cubic', bounds_error=False, fill_value=0)
+            f_dpdv = interp1d(dpdv, JV[:, 0], kind='cubic', bounds_error=False, fill_value=0)
+            vmp_int = np.float64(f_dpdv(0))
+            jmp_int = np.float64(f_j(vmp_int))
+            ff_int = jmp_int * vmp_int / (jsc_int * voc_int)
+            pmax = np.float64(f_p(vmp_int))
+        except ValueError:
+            vmp_int = 0
+            jmp_int = 0
+            ff_int = 0
+            pmax = 0
         pce_int = pmax / intensity
-
-        # find resistances from gradients
-        rsh_grad = np.absolute(np.float64(f_r(0)))
-        rs_grad = np.absolute(np.float64(f_r(voc_int)))
+        try:
+            f_r = interp1d(JV[:, 0], R, kind='cubic', bounds_error=False, fill_value=0)
+            rsh_grad = np.absolute(np.float64(f_r(0)))
+            rs_grad = np.absolute(np.float64(f_r(voc_int)))
+        except ValueError:
+            rsh_grad = 0
+            rs_grad = 0
 
     return [
         area, scan_direction, condition, jsc_int, voc_int, ff_int, pce_int,

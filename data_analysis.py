@@ -746,87 +746,87 @@ filtered_data_LH = filtered_data_LH[
 group_by_label_pixel_HL = filtered_scan_HL.groupby(['Label', 'Pixel'])
 group_by_label_pixel_LH = filtered_scan_LH.groupby(['Label', 'Pixel'])
 
-# Iterate through these groups and plot JV curves if more than one scan
-# has been performed
-i = 0
-for iHL, iLH in zip(group_by_label_pixel_HL.indices,
-                    group_by_label_pixel_LH.indices):
-    group_HL = group_by_label_pixel_HL.get_group(iHL)
-    group_LH = group_by_label_pixel_LH.get_group(iLH)
-
-    if any(int(scan) > 0 for scan in group_HL['scan_num']):
-        # Get label, variable, value, and pixel for title and image path
-        label = group_HL['Label'].unique()[0]
-        variable = group_HL['Variable'].unique()[0]
-        value = group_HL['Value'].unique()[0]
-        pixel = group_HL['Pixel'].unique()[0]
-
-        # Find maximum Jsc of the group for y-axis limits and number of
-        # JV curves for division of the colormap for the curves
-        jsc_max = max(max(group_HL['Jsc']), max(group_LH['Jsc']))
-        c_div = 1 / len(group_HL)
-
-        # Start a new slide after every 4th figure
-        if i % 4 == 0:
-            data_slide = rgl.title_image_slide(
-                prs, f'Repeat scan JV curves, page {int(i / 4)}')
-
-        # Create figure, axes, y=0 line, and title
-        fig = plt.figure(figsize=(A4_width / 2, A4_height / 2), dpi=300)
-        ax = fig.add_subplot(1, 1, 1)
-        ax.axhline(0, lw=0.5, c='black')
-        ax.set_title(
-            f'{labels[i]}, {variables[i]}, {values[i]}',
-            fontdict={'fontsize': 'xx-small'})
-
-        # Open data files and plot a JV curve on the same axes for each scan
-        j = 0
-        for path_HL, path_LH, scan_rate_HL, scan_rate_LH, scan_num_HL, scan_num_LH in zip(
-                group_HL['Rel_Path'], group_LH['Rel_Path'],
-                group_HL['Scan_rate'], group_LH['Scan_rate'],
-                group_HL['scan_num'], group_LH['scan_num']):
-
-            data_HL = np.genfromtxt(path_HL, delimiter='\t')
-            data_LH = np.genfromtxt(path_LH, delimiter='\t')
-            data_HL = data_HL[~np.isnan(data_HL).any(axis=1)]
-            data_LH = data_LH[~np.isnan(data_LH).any(axis=1)]
-
-            ax.plot(
-                data_HL[:, 0],
-                data_HL[:, 1],
-                c=cmap(j * c_div),
-                label=f'{scan_num_HL}, {scan_rate_HL} V/s')
-            ax.plot(data_LH[:, 0], data_LH[:, 1], c=cmap(j * c_div))
-
-            j += 1
-
-        # Format the axes
-        ax.set_xlabel('Applied bias (V)')
-        ax.set_ylabel('J (mA/cm^2)')
-        ax.set_xlim([np.min(data_HL[:, 0]), np.max(data_HL[:, 0])])
-        ax.set_ylim([-jscs[i - 1] * 1.1, jscs[i - 1] * 1.1])
-
-        # Adjust plot width to add legend outside plot area
-        box = ax.get_position()
-        ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-        handles, labels = ax.get_legend_handles_labels()
-        lgd = ax.legend(
-            handles, labels, loc='upper left', bbox_to_anchor=(1, 1))
-
-        # Format the figure layout, save to file, and add to ppt
-        image_path = ntpath.join(image_folder, f'jv_repeats_{label}_{variable}_{value}_{pixel}.png')
-        fig.savefig(image_path, bbox_extra_artists=(lgd), bbox_inches='tight')
-        data_slide.shapes.add_picture(
-            image_path,
-            left=lefts[str(i % 4)],
-            top=tops[str(i % 4)],
-            height=height)
-
-        # Close figure
-        plt.close(fig)
-
-        i += 1
-print('Done')
+# # Iterate through these groups and plot JV curves if more than one scan
+# # has been performed
+# i = 0
+# for iHL, iLH in zip(group_by_label_pixel_HL.indices,
+#                     group_by_label_pixel_LH.indices):
+#     group_HL = group_by_label_pixel_HL.get_group(iHL)
+#     group_LH = group_by_label_pixel_LH.get_group(iLH)
+#
+#     if any(int(scan) > 0 for scan in group_HL['scan_num']):
+#         # Get label, variable, value, and pixel for title and image path
+#         label = group_HL['Label'].unique()[0]
+#         variable = group_HL['Variable'].unique()[0]
+#         value = group_HL['Value'].unique()[0]
+#         pixel = group_HL['Pixel'].unique()[0]
+#
+#         # Find maximum Jsc of the group for y-axis limits and number of
+#         # JV curves for division of the colormap for the curves
+#         jsc_max = max(max(group_HL['Jsc']), max(group_LH['Jsc']))
+#         c_div = 1 / len(group_HL)
+#
+#         # Start a new slide after every 4th figure
+#         if i % 4 == 0:
+#             data_slide = rgl.title_image_slide(
+#                 prs, f'Repeat scan JV curves, page {int(i / 4)}')
+#
+#         # Create figure, axes, y=0 line, and title
+#         fig = plt.figure(figsize=(A4_width / 2, A4_height / 2), dpi=300)
+#         ax = fig.add_subplot(1, 1, 1)
+#         ax.axhline(0, lw=0.5, c='black')
+#         ax.set_title(
+#             f'{labels[i]}, {variables[i]}, {values[i]}',
+#             fontdict={'fontsize': 'xx-small'})
+#
+#         # Open data files and plot a JV curve on the same axes for each scan
+#         j = 0
+#         for path_HL, path_LH, scan_rate_HL, scan_rate_LH, scan_num_HL, scan_num_LH in zip(
+#                 group_HL['Rel_Path'], group_LH['Rel_Path'],
+#                 group_HL['Scan_rate'], group_LH['Scan_rate'],
+#                 group_HL['scan_num'], group_LH['scan_num']):
+#
+#             data_HL = np.genfromtxt(path_HL, delimiter='\t')
+#             data_LH = np.genfromtxt(path_LH, delimiter='\t')
+#             data_HL = data_HL[~np.isnan(data_HL).any(axis=1)]
+#             data_LH = data_LH[~np.isnan(data_LH).any(axis=1)]
+#
+#             ax.plot(
+#                 data_HL[:, 0],
+#                 data_HL[:, 1],
+#                 c=cmap(j * c_div),
+#                 label=f'{scan_num_HL}, {scan_rate_HL} V/s')
+#             ax.plot(data_LH[:, 0], data_LH[:, 1], c=cmap(j * c_div))
+#
+#             j += 1
+#
+#         # Format the axes
+#         ax.set_xlabel('Applied bias (V)')
+#         ax.set_ylabel('J (mA/cm^2)')
+#         ax.set_xlim([np.min(data_HL[:, 0]), np.max(data_HL[:, 0])])
+#         ax.set_ylim([-jscs[i - 1] * 1.1, jscs[i - 1] * 1.1])
+#
+#         # Adjust plot width to add legend outside plot area
+#         box = ax.get_position()
+#         ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+#         handles, labels = ax.get_legend_handles_labels()
+#         lgd = ax.legend(
+#             handles, labels, loc='upper left', bbox_to_anchor=(1, 1))
+#
+#         # Format the figure layout, save to file, and add to ppt
+#         image_path = ntpath.join(image_folder, f'jv_repeats_{label}_{variable}_{value}_{pixel}.png')
+#         fig.savefig(image_path, bbox_extra_artists=(lgd), bbox_inches='tight')
+#         data_slide.shapes.add_picture(
+#             image_path,
+#             left=lefts[str(i % 4)],
+#             top=tops[str(i % 4)],
+#             height=height)
+#
+#         # Close figure
+#         plt.close(fig)
+#
+#         i += 1
+# print('Done')
 
 # Build a max power stabilisation log dataframe from file paths and J-V log
 # file.
