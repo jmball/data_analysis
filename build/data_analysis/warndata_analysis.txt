@@ -36,7 +36,6 @@ missing module named multiprocessing.SimpleQueue - imported by multiprocessing, 
 missing module named resource - imported by posix, H:\Git\data_analysis\data_analysis.py
 missing module named posix - imported by os, H:\Git\data_analysis\data_analysis.py
 missing module named _posixsubprocess - imported by subprocess, multiprocessing.util, H:\Git\data_analysis\data_analysis.py
-missing module named 'org.python' - imported by pickle, xml.sax, setuptools.sandbox, H:\Git\data_analysis\data_analysis.py
 missing module named readline - imported by cmd, code, pdb, H:\Git\data_analysis\data_analysis.py
 excluded module named _frozen_importlib - imported by importlib, importlib.abc, PyInstaller.loader.pyimod02_archive, H:\Git\data_analysis\data_analysis.py
 missing module named _frozen_importlib_external - imported by importlib._bootstrap, importlib, importlib.abc, H:\Git\data_analysis\data_analysis.py
@@ -50,9 +49,10 @@ missing module named urllib.urlopen - imported by urllib, lxml.html
 missing module named urllib.quote - imported by urllib, jinja2._compat
 missing module named urllib.urlencode - imported by urllib, tornado.httputil, tornado.web, pandas.io.common, lxml.html
 missing module named grp - imported by shutil, tarfile, pathlib, distutils.archive_util, H:\Git\data_analysis\data_analysis.py
-missing module named pwd - imported by posixpath, shutil, tarfile, http.server, webbrowser, pathlib, psutil, distutils.util, distutils.archive_util, netrc, getpass, H:\Git\data_analysis\data_analysis.py
 missing module named _dummy_threading - imported by dummy_threading, H:\Git\data_analysis\data_analysis.py
-missing module named org - imported by copy, H:\Git\data_analysis\data_analysis.py
+missing module named 'org.python' - imported by copy, xml.sax, setuptools.sandbox, H:\Git\data_analysis\data_analysis.py
+missing module named pwd - imported by posixpath, shutil, tarfile, http.server, webbrowser, pathlib, psutil, distutils.util, distutils.archive_util, netrc, getpass, H:\Git\data_analysis\data_analysis.py
+missing module named org - imported by pickle, H:\Git\data_analysis\data_analysis.py
 missing module named Carbon - imported by wx.lib.colourutils
 missing module named psutil._psutil_aix - imported by psutil, psutil._psaix
 missing module named psutil._psutil_sunos - imported by psutil, psutil._pssunos
@@ -248,7 +248,6 @@ missing module named exceptions - imported by pptx.opc.phys_pkg
 missing module named matplotlib.tri.Triangulation - imported by matplotlib.tri, matplotlib.tri.trifinder, matplotlib.tri.tritools, matplotlib.tri.triinterpolate, matplotlib.mlab
 missing module named 'mpl_toolkits.natgrid' - imported by matplotlib.mlab
 missing module named matplotlib.axes.Subplot - imported by matplotlib.axes, matplotlib.pyplot, pandas.plotting._core
-missing module named mock - imported by matplotlib, pandas.util.testing
 missing module named 'IPython.html' - imported by seaborn.widgets
 missing module named fastcluster - imported by seaborn.matrix
 missing module named 'statsmodels.nonparametric' - imported by seaborn.distributions, seaborn.regression
@@ -288,6 +287,7 @@ missing module named __pypy__ - imported by jinja2.debug
 missing module named bottleneck - imported by pandas.core.nanops
 missing module named xarray - imported by pandas.core.generic
 missing module named pudb - imported by pandas.util.testing
+missing module named mock - imported by matplotlib, pandas.util.testing
 missing module named 'py.path' - imported by pandas.util.testing
 missing module named cssselect - imported by lxml.cssselect
 missing module named 'genshi.core' - imported by html5lib.treewalkers.genshi

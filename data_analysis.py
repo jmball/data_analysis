@@ -5,8 +5,8 @@ import os
 import time
 # import os
 
-# import matplotlib
-# matplotlib.use('WXAgg')
+import matplotlib
+matplotlib.use('TkAgg')
 
 import matplotlib.pyplot as plt
 import numpy as np
