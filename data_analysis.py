@@ -3,7 +3,7 @@
 
 import os
 import time
-import ntpath
+# import os
 
 # import matplotlib
 # matplotlib.use('WXAgg')
@@ -162,7 +162,7 @@ def plot_boxplots(df, params, kind, grouping, variable=''):
         fig.tight_layout()
 
         # save figure and add to powerpoint
-        image_path = ntpath.join(image_folder, f'boxplot_{p}.png')
+        image_path = os.path.join(image_folder, f'boxplot_{p}.png')
         fig.savefig(image_path)
         data_slide.shapes.add_picture(
             image_path,
@@ -209,7 +209,7 @@ def plot_countplots(df, ix, grouping, data_slide, variable=''):
     fig.tight_layout()
 
     # save figure and add to powerpoint
-    image_path = ntpath.join(image_folder, f'boxchart_yields{ix}.png')
+    image_path = os.path.join(image_folder, f'boxchart_yields{ix}.png')
     fig.savefig(image_path)
     data_slide.shapes.add_picture(
         image_path, left=lefts[str(ix % 4)], top=tops[str(ix % 4)], height=height)
@@ -220,7 +220,7 @@ args = parse()
 
 # Define folder and file paths
 log_filepath = args.log_filepath
-folderpath, log_filename = ntpath.split(log_filepath)
+folderpath, log_filename = os.path.split(log_filepath)
 folderpath_split = recursive_path_split(folderpath)
 if folderpath_split[-1] == 'LOGS':
     raise ValueError('the log file must be in the same folder as the jv data!')
@@ -230,8 +230,8 @@ os.chdir(folderpath)
 
 # Create folders for storing files generated during analysis
 print('Creating analysis folder...', end='', flush=True)
-analysis_folder = ntpath.join(folderpath, 'Analysis')
-image_folder = ntpath.join(analysis_folder, 'Figures')
+analysis_folder = os.path.join(folderpath, 'Analysis')
+image_folder = os.path.join(analysis_folder, 'Figures')
 if os.path.exists(analysis_folder):
     pass
 else:
@@ -579,7 +579,7 @@ for name, group in grouped_by_label:
     lgd = ax.legend(handles, labs, loc='upper left', bbox_to_anchor=(1, 1), fontsize='small')
 
     # Format the figure layout, save to file, and add to ppt
-    image_path = ntpath.join(image_folder, f'jv_all_{labels[i]}.png')
+    image_path = os.path.join(image_folder, f'jv_all_{labels[i]}.png')
     fig.savefig(image_path, bbox_extra_artists=(lgd, ), bbox_inches='tight')
     data_slide.shapes.add_picture(
         image_path,
@@ -708,7 +708,7 @@ for file, scan_dir in zip(best_pixels['Rel_Path'],
     ax.legend(loc='best')
 
     # Format the figure layout, save to file, and add to ppt
-    image_path = ntpath.join(image_folder, f'jv_best_{variables[i]}_{variables[i]}.png')
+    image_path = os.path.join(image_folder, f'jv_best_{variables[i]}_{variables[i]}.png')
     fig.tight_layout()
     fig.savefig(image_path)
     data_slide.shapes.add_picture(
@@ -817,7 +817,7 @@ group_by_label_pixel_LH = filtered_scan_LH.groupby(['Label', 'Pixel'])
 #             handles, labels, loc='upper left', bbox_to_anchor=(1, 1))
 #
 #         # Format the figure layout, save to file, and add to ppt
-#         image_path = ntpath.join(image_folder, f'jv_repeats_{label}_{variable}_{value}_{pixel}.png')
+#         image_path = os.path.join(image_folder, f'jv_repeats_{label}_{variable}_{value}_{pixel}.png')
 #         fig.savefig(image_path, bbox_extra_artists=(lgd), bbox_inches='tight')
 #         data_slide.shapes.add_picture(
 #             image_path,
@@ -876,7 +876,7 @@ for index, row in spo_data.iterrows():
     ax1.legend()
 
     # Format the figure layout, save to file, and add to ppt
-    image_path = ntpath.join(image_folder, f'spo_{label}_{variable}_{value}_{pixel}.png')
+    image_path = os.path.join(image_folder, f'spo_{label}_{variable}_{value}_{pixel}.png')
     fig.tight_layout()
     fig.subplots_adjust(hspace=0.05)
     fig.savefig(image_path)
@@ -988,7 +988,7 @@ try:
             ax.set_xlim([0, np.max(group_HL['Intensity'] * 100) * 1.05])
 
             # Format the figure layout, save to file, and add to ppt
-            image_path = ntpath.join(image_folder, f'intensity_jsc_{label}_{variable}_{value}_{pixel}.png')
+            image_path = os.path.join(image_folder, f'intensity_jsc_{label}_{variable}_{value}_{pixel}.png')
             fig.tight_layout()
             fig.savefig(image_path)
             data_slide.shapes.add_picture(
@@ -1053,7 +1053,7 @@ try:
             ])
 
             # Format the figure layout, save to file, and add to ppt
-            image_path = ntpath.join(image_folder, f'intensity_voc_{label}_{variable}_{value}_{pixel}.png')
+            image_path = os.path.join(image_folder, f'intensity_voc_{label}_{variable}_{value}_{pixel}.png')
             fig.tight_layout()
             fig.savefig(image_path)
             data_slide.shapes.add_picture(
@@ -1084,7 +1084,7 @@ try:
             ax.set_xlim([0, np.max(group_HL['Intensity'] * 100) * 1.05])
 
             # Format the figure layout, save to file, and add to ppt
-            image_path = ntpath.join(image_folder, f'intensity_ff_{label}_{variable}_{value}_{pixel}.png')
+            image_path = os.path.join(image_folder, f'intensity_ff_{label}_{variable}_{value}_{pixel}.png')
             fig.tight_layout()
             fig.savefig(image_path)
             data_slide.shapes.add_picture(
@@ -1115,7 +1115,7 @@ try:
             ax.set_xlim([0, np.max(group_HL['Intensity'] * 100) * 1.05])
 
             # Format the figure layout, save to file, and add to ppt
-            image_path = ntpath.join(image_folder, f'intensity_pce_{label}_{variable}_{value}_{pixel}.png')
+            image_path = os.path.join(image_folder, f'intensity_pce_{label}_{variable}_{value}_{pixel}.png')
             fig.tight_layout()
             fig.savefig(image_path)
             data_slide.shapes.add_picture(
@@ -1199,7 +1199,7 @@ try:
                 prop={'size': 9})
 
             # Format the figure layout, save to file, and add to ppt
-            image_path = ntpath.join(image_folder, f'jv_intensity_{label}_{variable}_{value}_{pixel}.png')
+            image_path = os.path.join(image_folder, f'jv_intensity_{label}_{variable}_{value}_{pixel}.png')
             fig.savefig(
                 image_path, bbox_extra_artists=(lgd, ), bbox_inches='tight')
             data_slide.shapes.add_picture(

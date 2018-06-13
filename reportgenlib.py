@@ -1,7 +1,6 @@
 # Library of functions for analysis and plotting of the Automated PV
 # Measurement data output.
 
-import ntpath
 import os
 from functools import reduce
 
@@ -84,22 +83,22 @@ def extra_JV_analysis(filepath):
     """
 
     # get relative file path
-    folder, filepath = ntpath.split(filepath)
-    rel_path = filepath
-    print(filepath)
+    rel_path = filepath.split('\\')[-1]
+    # rel_path = filepath
+    print(rel_path)
 
     # determine condition
-    if filepath.find('liv') > -1:
+    if rel_path.find('liv') > -1:
         condition = 'Light'
-    elif filepath.find('div') > -1:
+    elif rel_path.find('div') > -1:
         condition = 'Dark'
-    elif filepath.find('hold') > -1:
+    elif rel_path.find('hold') > -1:
         condition = 'SPO'
 
     # perform analysis depending on measurement condition
     if condition == 'SPO':
         # import datafile for retreiving metadata
-        SPO = pd.read_csv(filepath, delimiter='\t')
+        SPO = pd.read_csv(rel_path, delimiter='\t')
         area = SPO.iloc[-3, 1]
         scan_direction = '0'
         jsc_int = 0
@@ -112,7 +111,7 @@ def extra_JV_analysis(filepath):
         rsh_grad = 0
     elif condition == 'Dark':
         # import J-V data and paramter metadata
-        JV = np.genfromtxt(filepath, delimiter='\t')
+        JV = np.genfromtxt(rel_path, delimiter='\t')
         area = JV[-3, 1]
         intensity = JV[-1, 1]
         JV = JV[0:-11, :]
@@ -133,7 +132,7 @@ def extra_JV_analysis(filepath):
         rsh_grad = 0
     elif condition == 'Light':
         # import J-V data and paramter metadata
-        JV = np.genfromtxt(filepath, delimiter='\t')
+        JV = np.genfromtxt(rel_path, delimiter='\t')
         area = JV[-3, 1]
         intensity = JV[-1, 1]
         JV = JV[0:-11, :]
