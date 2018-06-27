@@ -532,6 +532,7 @@ for name, group in grouped_by_label:
     # get parameters for plot formatting
     c_div = 1 / 8
     pixels = list(group['Pixel'])
+    max_group_jsc = np.max(np.absolute(group['Jsc_int']))
     max_group_jmp = np.max(np.absolute(group['Jmp_int']))
     max_group_voc = np.max(np.absolute(group['Voc_int']))
 
@@ -567,10 +568,10 @@ for name, group in grouped_by_label:
     ax.set_ylabel('J (mA/cm^2)')
     if sign > 0:
         ax.set_xlim([np.min(data_HL[:, 0]), max_group_voc + 0.25])
-        ax.set_ylim([-max_group_jmp * 2.8, max_group_jmp * 1.4])
+        ax.set_ylim([-max_group_jsc * 2.8, max_group_jsc * 1.4])
     else:
         ax.set_xlim([-max_group_voc - 0.25, np.max(data_HL[:, 0])])
-        ax.set_ylim([-max_group_jmp * 1.4, max_group_jmp * 2.8])
+        ax.set_ylim([-max_group_jsc * 1.4, max_group_jsc * 2.8])
 
     # Adjust plot width to add legend outside plot area
     box = ax.get_position()
@@ -606,6 +607,8 @@ subplot_cols = np.ceil(no_of_subplots / subplot_rows)
 # create lists of varibales and values for labelling figures
 variables = list(best_pixels['Variable'])
 values = list(best_pixels['Value'])
+labels = list(best_pixels['Label'])
+jscs = list(best_pixels['Jsc_int'])
 jmps = list(np.absolute(best_pixels['Jmp_int']))
 vocs = list(np.absolute(best_pixels['Voc_int']))
 signs = list(np.sign(best_pixels['Jmp_int']))
@@ -626,7 +629,7 @@ for file, scan_dir in zip(best_pixels['Rel_Path'],
     ax.axhline(0, lw=0.5, c='black')
     ax.axvline(0, lw=0.5, c='black')
     ax.set_title(
-        f'{labels[i]}, {variables[i]}, {values[i]}',
+        f'{variables[i]}, {values[i]}, {labels[i]}',
         fontdict={'fontsize': 'xx-small'})
 
     # Import data for each pixel and plot on axes, ignoring errors. If
@@ -700,10 +703,10 @@ for file, scan_dir in zip(best_pixels['Rel_Path'],
     ax.set_ylabel('J (mA/cm^2)')
     if signs[i] > 0:
         ax.set_xlim([np.min(JV_light_HL_data[:, 0]), vocs[i] + 0.25])
-        ax.set_ylim([-jmps[i] * 2.8, jmps[i] * 1.4])
+        ax.set_ylim([-jscs[i] * 2.8, jscs[i] * 1.4])
     else:
         ax.set_xlim([-vocs[i] - 0.25, np.max(JV_light_HL_data[:, 0])])
-        ax.set_ylim([-jmps[i] * 1.4, jmps[i] * 2.8])
+        ax.set_ylim([jscs[i] * 1.4, -jscs[i] * 2.8])
 
     ax.legend(loc='best')
 
@@ -1212,7 +1215,7 @@ try:
             plt.close(fig)
 
             i += 1
-except KeyError:
+except (KeyError, ValueError):
     pass
 print('Done')
 
