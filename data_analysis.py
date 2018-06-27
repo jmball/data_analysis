@@ -34,13 +34,20 @@ def parse():
     """Parse command line arguments to Gooey GUI"""
 
     desc = "Analyse solar simulator data and generate a report"
-    file_help_msg = "Absolute path to the log file located in the same folder as the measurement data"
     parser = GooeyParser(description=desc)
-    parser.add_argument(
+    req = parser.add_argument_group(gooey_options={'columns': 1})
+    req.add_argument(
         "log_filepath",
         metavar='Filepath to the log file',
-        help=file_help_msg,
+        help="Absolute path to the log file located in the same folder as the measurement data",
         widget="FileChooser")
+    req.add_argument(
+        "fix_ymin_0",
+        metavar='Zero y-axis minima',
+        help='Fix boxplot y-axis minima to 0',
+        widget="Dropdown",
+        choices=['yes', 'no'],
+        default='yes')
     args = parser.parse_args()
     return args
 
@@ -131,7 +138,8 @@ def plot_boxplots(df, params, kind, grouping, variable=''):
             ax.get_xticklabels(), fontsize='xx-small', rotation=45, ha='right')
         ax.set_xlabel('')
         if p in ['Jsc_int', 'Voc_int', 'PCE_int', 'Vmp_int', 'Jmp_int']:
-            ax.set_ylim(0)
+            if fix_ymin_0:
+                ax.set_ylim(0)
             if p == 'Jsc_int':
                 ax.set_ylabel('Jsc (mA/cm^2)')
             elif p == 'Voc_int':
@@ -143,7 +151,8 @@ def plot_boxplots(df, params, kind, grouping, variable=''):
             elif p == 'Jmp_int':
                 ax.set_ylabel('Jmp (mA/cm^2)')
         elif p == 'FF_int':
-            ax.set_ylim((0, 1))
+            if fix_ymin_0:
+                ax.set_ylim((0, 1))
             ax.set_ylabel('FF')
         elif p in ['Rs_grad', 'Rsh_grad']:
             ax.set_yscale('log')
@@ -152,7 +161,8 @@ def plot_boxplots(df, params, kind, grouping, variable=''):
             elif p == 'Rsh_grad':
                 ax.set_ylabel('Rsh (ohms)')
         elif p in ['Jspo', 'PCEspo', 'PCEspo-PCE']:
-            ax.set_ylim(0)
+            if fix_ymin_0:
+                ax.set_ylim(0)
             if p == 'Jspo':
                 ax.set_ylabel('Jspo (mA/cm^2)')
             elif p == 'PCEspo':
@@ -217,6 +227,11 @@ def plot_countplots(df, ix, grouping, data_slide, variable=''):
 
 # parse args
 args = parse()
+
+if args.fix_ymin_0 == 'yes':
+    fix_ymin_0 = True
+else:
+    fix_ymin_0 = False
 
 # Define folder and file paths
 log_filepath = args.log_filepath
