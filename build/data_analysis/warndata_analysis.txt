@@ -4,10 +4,10 @@ missing module named StringIO - imported by six, numpy.lib.utils, numpy.testing.
 missing module named 'win32com.gen_py' - imported by win32com, c:\users\ball\appdata\local\continuum\anaconda3\envs\gooey-test\lib\site-packages\PyInstaller\loader\rthooks\pyi_rth_win32comgenpy.py
 missing module named 'lib2to3.refactor' - imported by distutils.util
 missing module named pyimod03_importers - imported by PyInstaller.loader.pyimod02_archive, c:\users\ball\appdata\local\continuum\anaconda3\envs\gooey-test\lib\site-packages\PyInstaller\loader\rthooks\pyi_rth_pkgres.py
+missing module named 'pkg_resources.extern.pyparsing' - imported by pkg_resources._vendor.packaging.markers, pkg_resources._vendor.packaging.requirements
+missing module named ordereddict - imported by pyparsing, pkg_resources._vendor.pyparsing
 missing module named 'com.sun' - imported by pkg_resources._vendor.appdirs
 missing module named com - imported by pkg_resources._vendor.appdirs
-missing module named 'pkg_resources.extern.pyparsing' - imported by pkg_resources._vendor.packaging.requirements, pkg_resources._vendor.packaging.markers
-missing module named ordereddict - imported by pyparsing, pkg_resources._vendor.pyparsing
 missing module named _scproxy - imported by urllib.request
 missing module named 'macholib.compat' - imported by macholib.MachO
 missing module named _pkgutil - imported by PyInstaller.lib.modulegraph.modulegraph
@@ -36,6 +36,7 @@ missing module named multiprocessing.SimpleQueue - imported by multiprocessing, 
 missing module named resource - imported by posix, H:\Git\data_analysis\data_analysis.py
 missing module named posix - imported by os, H:\Git\data_analysis\data_analysis.py
 missing module named _posixsubprocess - imported by subprocess, multiprocessing.util, H:\Git\data_analysis\data_analysis.py
+missing module named org - imported by pickle, H:\Git\data_analysis\data_analysis.py
 missing module named readline - imported by cmd, code, pdb, H:\Git\data_analysis\data_analysis.py
 excluded module named _frozen_importlib - imported by importlib, importlib.abc, PyInstaller.loader.pyimod02_archive, H:\Git\data_analysis\data_analysis.py
 missing module named _frozen_importlib_external - imported by importlib._bootstrap, importlib, importlib.abc, H:\Git\data_analysis\data_analysis.py
@@ -49,10 +50,9 @@ missing module named urllib.urlopen - imported by urllib, lxml.html
 missing module named urllib.quote - imported by urllib, jinja2._compat
 missing module named urllib.urlencode - imported by urllib, tornado.httputil, tornado.web, pandas.io.common, lxml.html
 missing module named grp - imported by shutil, tarfile, pathlib, distutils.archive_util, H:\Git\data_analysis\data_analysis.py
-missing module named _dummy_threading - imported by dummy_threading, H:\Git\data_analysis\data_analysis.py
-missing module named 'org.python' - imported by copy, xml.sax, setuptools.sandbox, H:\Git\data_analysis\data_analysis.py
 missing module named pwd - imported by posixpath, shutil, tarfile, http.server, webbrowser, pathlib, psutil, distutils.util, distutils.archive_util, netrc, getpass, H:\Git\data_analysis\data_analysis.py
-missing module named org - imported by pickle, H:\Git\data_analysis\data_analysis.py
+missing module named 'org.python' - imported by copy, xml.sax, setuptools.sandbox, H:\Git\data_analysis\data_analysis.py
+missing module named _dummy_threading - imported by dummy_threading, H:\Git\data_analysis\data_analysis.py
 missing module named Carbon - imported by wx.lib.colourutils
 missing module named psutil._psutil_aix - imported by psutil, psutil._psaix
 missing module named psutil._psutil_sunos - imported by psutil, psutil._pssunos

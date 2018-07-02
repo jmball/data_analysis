@@ -481,10 +481,12 @@ jv_params = [
 spo_params = ['Jspo', 'PCEspo', 'PCEspo-PCE']
 
 # create boxplots for jv and spo parameters grouped by label
-plot_boxplots(filtered_data, jv_params, 'J-V', 'Label')
-plt.close('all')
-plot_boxplots(spo_data, spo_params, 'SPO', 'Label')
-plt.close('all')
+if not filtered_data.empty:
+    plot_boxplots(filtered_data, jv_params, 'J-V', 'Label')
+    plt.close('all')
+if not spo_data.empty:
+    plot_boxplots(spo_data, spo_params, 'SPO', 'Label')
+    plt.close('all')
 
 # create boxplots for jv and spo parameters grouped by variable value
 grouped_filtered_data = filtered_data.groupby(['Variable'])
@@ -1236,7 +1238,7 @@ print('Done')
 
 # export log file with extra analysis
 print('Saving log file...', end='', flush=True)
-data.to_csv(log_filepath.replace('.log', '_extra.log'))
+data.to_csv(log_filepath.replace('.log', '_extra.log'), sep='\t', index=False)
 print('Done')
 
 # Save powerpoint presentation
