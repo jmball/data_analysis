@@ -562,6 +562,8 @@ for name, group in grouped_by_label:
         sign = signs[ix]
 
     # load data for each pixel and plot on axes
+    fwd_j = []
+    rev_j = []
     j = 0
     for file, scan_dir in zip(group['Rel_Path'], group['Scan_direction']):
         if scan_dir == 'LH':
@@ -573,10 +575,22 @@ for name, group in grouped_by_label:
                 label=pixels[j],
                 c=cmap(pixels[j] * c_div),
                 lw=2.0)
+            if sign > 0:
+                fwd_j.append(data_LH[-1,1])
+                rev_j.append(data_LH[0,1])
+            else:
+                fwd_j.append(data_LH[0,1])
+                rev_j.append(data_LH[-1,1])
         elif scan_dir == 'HL':
             data_HL = np.genfromtxt(file, delimiter='\t')
             data_HL = data_HL[~np.isnan(data_HL).any(axis=1)]
             ax.plot(data_HL[:, 0], data_HL[:, 1], c=cmap(pixels[j] * c_div), lw=2.0)
+            if sign > 0:
+                fwd_j.append(data_HL[0,1])
+                rev_j.append(data_HL[-1,1])
+            else:
+                fwd_j.append(data_HL[-1,1])
+                rev_j.append(data_HL[0,1])
 
         j += 1
 
@@ -585,10 +599,10 @@ for name, group in grouped_by_label:
     ax.set_ylabel('J (mA/cm^2)')
     if sign > 0:
         ax.set_xlim([np.min(data_HL[:, 0]), max_group_voc + 0.25])
-        ax.set_ylim([-max_group_jsc * 2.8, max_group_jsc * 1.4])
+        ax.set_ylim([-np.max(np.absolute(rev_j)) * 2.8, np.max(np.absolute(rev_j)) * 1.4])
     else:
         ax.set_xlim([-max_group_voc - 0.25, np.max(data_HL[:, 0])])
-        ax.set_ylim([-max_group_jsc * 1.4, max_group_jsc * 2.8])
+        ax.set_ylim([-np.max(np.absolute(rev_j)) * 1.4, np.max(np.absolute(rev_j)) * 2.8])
 
     # Adjust plot width to add legend outside plot area
     box = ax.get_position()
@@ -687,6 +701,7 @@ for file, scan_dir in zip(best_pixels['Rel_Path'],
     except NameError:
         pass
 
+    # plot light J-V curves
     ax.plot(
         JV_light_LH_data[:, 0],
         JV_light_LH_data[:, 1],
@@ -699,6 +714,22 @@ for file, scan_dir in zip(best_pixels['Rel_Path'],
         label='H->L',
         c='black',
         lw=2.0)
+
+    # find y-limits for plotting
+    fwd_j = []
+    rev_j = []
+    if signs[i] > 0:
+        fwd_j.append(JV_light_LH_data[-1,1])
+        rev_j.append(JV_light_LH_data[0,1])
+        fwd_j.append(JV_light_HL_data[0,1])
+        rev_j.append(JV_light_HL_data[-1,1])
+    else:
+        fwd_j.append(JV_light_LH_data[0,1])
+        rev_j.append(JV_light_LH_data[-1,1])
+        fwd_j.append(JV_light_HL_data[-1,1])
+        rev_j.append(JV_light_HL_data[0,1])
+
+    # try to plot dark J-V curves
     try:
         ax.plot(
             JV_dark_LH_data[:, 0],
@@ -720,10 +751,10 @@ for file, scan_dir in zip(best_pixels['Rel_Path'],
     ax.set_ylabel('J (mA/cm^2)')
     if signs[i] > 0:
         ax.set_xlim([np.min(JV_light_HL_data[:, 0]), vocs[i] + 0.25])
-        ax.set_ylim([-jscs[i] * 2.8, jscs[i] * 1.4])
+        ax.set_ylim([-np.max(np.absolute(rev_j)) * 2.8, np.max(np.absolute(rev_j)) * 1.4])
     else:
         ax.set_xlim([-vocs[i] - 0.25, np.max(JV_light_HL_data[:, 0])])
-        ax.set_ylim([jscs[i] * 1.4, -jscs[i] * 2.8])
+        ax.set_ylim([-np.max(np.absolute(rev_j)) * 1.4, np.max(np.absolute(rev_j)) * 2.8])
 
     ax.legend(loc='best')
 
