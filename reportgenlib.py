@@ -46,13 +46,17 @@ def title_image_slide(prs, title):
     return slide
 
 
-def extra_JV_analysis(filepath):
+def extra_JV_analysis(filepath, intensity, num_cols):
     """Process JV curve data.
 
     Parameters
     ----------
     filepath : str
         absolute path to the data file
+    intensity : float
+        equivalent solar intensity (no. of suns)
+    num_cols : int
+        number of columns in log file
 
     Returns
     -------
@@ -74,6 +78,8 @@ def extra_JV_analysis(filepath):
         interpolated vmp in V
     jmp_int : float
         interpolated jmp in mA/cm^2
+    vspo : float
+        voltage used for spo scan
     rs_grad : float
         series resistance derived from gradient at voc in ohms
     rsh_grad : float
@@ -94,27 +100,40 @@ def extra_JV_analysis(filepath):
         condition = 'Dark'
     elif rel_path.find('hold') > -1:
         condition = 'SPO'
+    elif rel_path.find('jsc') > -1:
+        condition = 'SJsc'
+    elif rel_path.find('voc') > -1:
+        condition = 'SVoc'
 
     # perform analysis depending on measurement condition
-    if condition == 'SPO':
+    if (condition == 'SPO') or (condition == 'SJsc') or (condition == 'SVoc'):
         # import datafile for retreiving metadata
-        SPO = pd.read_csv(rel_path, delimiter='\t')
-        area = SPO.iloc[-3, 1]
+        if (num_cols == 20) or (num_cols == 21):
+            area = 0
+            vspo = 0
+        else:
+            SPO = pd.read_csv(rel_path, delimiter='\t')
+            area = SPO.iloc[-3, 1]
+            vspo = SPO.iloc[-2, 1]
         scan_direction = '0'
         jsc_int = 0
         voc_int = 0
         ff_int = 0
         pce_int = 0
-        vmp_int = SPO.iloc[-2, 1]
+        vmp_int = 0
         jmp_int = 0
         rs_grad = 0
         rsh_grad = 0
     elif condition == 'Dark':
         # import J-V data and paramter metadata
-        JV = np.genfromtxt(rel_path, delimiter='\t')
-        area = JV[-3, 1]
-        intensity = JV[-1, 1]
-        JV = JV[0:-11, :]
+        if (num_cols == 20) or (num_cols == 21):
+            JV = np.genfromtxt(rel_path, delimiter='\t', skip_header=1, skip_footer=num_cols, usecols=(1, 3))
+            area = 0
+        else:
+            JV = np.genfromtxt(rel_path, delimiter='\t')
+            area = JV[-3, 1]
+            intensity = JV[-1, 1]
+            JV = JV[0:-11, :]
 
         # determine scan direction
         if JV[0, 0] > JV[-1, 0]:
@@ -128,14 +147,25 @@ def extra_JV_analysis(filepath):
         pce_int = 0
         vmp_int = 0
         jmp_int = 0
+        vspo = 0
         rs_grad = 0
         rsh_grad = 0
     elif condition == 'Light':
         # import J-V data and paramter metadata
-        JV = np.genfromtxt(rel_path, delimiter='\t')
-        area = JV[-3, 1]
-        intensity = JV[-1, 1]
-        JV = JV[0:-11, :]
+        if (num_cols == 20) or (num_cols == 21):
+            JV = np.genfromtxt(rel_path, delimiter='\t', skip_header=1,
+                                skip_footer=num_cols, usecols=(1, 2, 3, 4))
+            area = 0
+            I = JV[:,1]
+            P = JV[:,3]
+            JV = JV[:,:3:2]
+        else:
+            JV = np.genfromtxt(rel_path, delimiter='\t')
+            area = JV[-3, 1]
+            intensity = JV[-1, 1]
+            JV = JV[0:-11, :]
+            I = JV[:, 1] * area / 1000
+            P = JV[:, 0] * JV[:, 1]
 
         # determine scan direction
         if JV[0, 0] > JV[-1, 0]:
@@ -144,8 +174,6 @@ def extra_JV_analysis(filepath):
             scan_direction = 'LH'
 
         # calculate derived parameters for further analysis
-        I = JV[:, 1] * area / 1000
-        P = JV[:, 0] * JV[:, 1]
         dpdv = np.gradient(P, JV[:, 0])
         didv = np.gradient(I, JV[:, 0])
         didv_sgfilter = savgol_filter(didv, 15, 3)
@@ -174,7 +202,6 @@ def extra_JV_analysis(filepath):
             jmp_int = 0
             ff_int = 0
             pmax = 0
-        pce_int = pmax / intensity
         try:
             f_r = interp1d(JV[:, 0], R, kind='cubic', bounds_error=False, fill_value=0)
             rsh_grad = np.absolute(np.float64(f_r(0)))
@@ -182,10 +209,12 @@ def extra_JV_analysis(filepath):
         except ValueError:
             rsh_grad = 0
             rs_grad = 0
+        pce_int = pmax / float(intensity)
+        vspo = 0
 
     return [
         area, scan_direction, condition, jsc_int, voc_int, ff_int, pce_int,
-        vmp_int, jmp_int, rs_grad, rsh_grad, rel_path
+        vmp_int, jmp_int, vspo, rs_grad, rsh_grad, rel_path
     ]
 
 
