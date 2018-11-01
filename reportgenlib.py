@@ -186,13 +186,13 @@ def extra_JV_analysis(filepath, intensity, num_cols):
         except ValueError:
             jsc_int = 0
         try:
-            f_v = interp1d(JV[:, 1], JV[:, 0], kind='cubic', bounds_error=False, fill_value=0)
+            f_v = interp1d(JV[:, 1], JV[:, 0], kind='linear', bounds_error=False, fill_value=0)
             voc_int = np.float64(f_v(0))
         except ValueError:
             voc_int = 0
         try:
             f_p = interp1d(JV[:, 0], P, kind='cubic', bounds_error=False, fill_value=0)
-            f_dpdv = interp1d(dpdv, JV[:, 0], kind='cubic', bounds_error=False, fill_value=0)
+            f_dpdv = interp1d(dpdv, JV[:, 0], kind='linear', bounds_error=False, fill_value=0)
             vmp_int = np.float64(f_dpdv(0))
             jmp_int = np.float64(f_j(vmp_int))
             ff_int = jmp_int * vmp_int / (jsc_int * voc_int)
