@@ -577,20 +577,28 @@ for item in sorted(sorted_data['Label'].unique()):
         pass
     i += 1
 
+# define maximum, likely, physical Jsc to be approximately the SQ limit for Si
+# under AM1.5, in mA/cm^2. This is useful for filtering strange IV behaviour
+# that occurs with poor 4-wire contacts.
+jsc_max = 45
+
 # Filter data
 filtered_data = sorted_data[(sorted_data.Condition == 'Light')
                             & (sorted_data.FF_int > 0.1) &
                             (sorted_data.FF_int < 0.9) &
-                            (np.absolute(sorted_data.Jsc_int) > 0.01)]
+                            (np.absolute(sorted_data.Jsc_int) > 0.01) &
+                            (np.absolute(sorted_data.Jsc_int) < jsc_max)]
 filtered_data_HL = sorted_data[(sorted_data.Condition == 'Light')
                                & (sorted_data.FF_int > 0.1) &
                                (sorted_data.FF_int < 0.9) &
                                (np.absolute(sorted_data.Jsc_int) > 0.01) &
+                               (np.absolute(sorted_data.Jsc_int) < jsc_max) &
                                (sorted_data.Scan_direction == 'HL')]
 filtered_data_LH = sorted_data[(sorted_data.Condition == 'Light')
                                & (sorted_data.FF_int > 0.1) &
                                (sorted_data.FF_int < 0.9) &
                                (np.absolute(sorted_data.Jsc_int) > 0.01) &
+                               (np.absolute(sorted_data.Jsc_int) < jsc_max) &
                                (sorted_data.Scan_direction == 'LH')]
 filtered_data = filtered_data.drop_duplicates(
     ['Label', 'Pixel', 'Scan_direction'])
