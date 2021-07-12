@@ -1,8 +1,9 @@
-# This script takes the measurement log files and loads them as Pandas
-# DataFrames for manipulation and then plotting.
+"""Generate a report of solar cell measurement data."""
 
 import os
+import pathlib
 import time
+import warnings
 
 import matplotlib
 
@@ -21,6 +22,11 @@ from scipy import constants
 
 from gooey import Gooey, GooeyParser
 
+import format_python_data
+import log_generator
+
+# supress warnings
+warnings.filterwarnings("ignore")
 
 # Define a colormap for graded plots
 cmap = plt.cm.get_cmap("viridis")
@@ -34,10 +40,10 @@ def parse():
     parser = GooeyParser(description=desc)
     req = parser.add_argument_group(gooey_options={"columns": 1})
     req.add_argument(
-        "log_filepath",
-        metavar="Filepath to the log file",
-        help="Absolute path to the log file located in the same folder as the measurement data",
-        widget="FileChooser",
+        "folder",
+        metavar="Folder containing data to be analysed",
+        help="Absolute path to the folder containing measurement data",
+        widget="DirChooser",
     )
     req.add_argument(
         "fix_ymin_0",
@@ -157,7 +163,6 @@ def plot_boxplots(df, params, kind, grouping, variable="", i=0, data_slide=None)
     data_slide : prs object
         current slide. Useful if carrying on from previous plots.
     """
-
     j = 0
     for p in params:
         # create a new slide for every 4 plots
@@ -196,7 +201,7 @@ def plot_boxplots(df, params, kind, grouping, variable="", i=0, data_slide=None)
                 dodge=True,
                 ax=ax,
             )
-        elif (kind == "SSPO") or (kind == "SSJsc") or (kind == "SSVoc"):
+        elif kind in ["SSPO", "SSJsc", "SSVoc"]:
             sns.boxplot(
                 x=df[grouping],
                 y=np.absolute(df[p].astype(float)),
@@ -299,7 +304,6 @@ def plot_countplots(df, ix, grouping, data_slide, variable=""):
     variable : str
         variable
     """
-
     # create count plot
     fig, ax = plt.subplots(1, 1, dpi=300, **{"figsize": (A4_width / 2, A4_height / 2)})
     if grouping == "value":
@@ -331,8 +335,7 @@ def plot_countplots(df, ix, grouping, data_slide, variable=""):
 
 
 def plot_stabilisation(df, title, short_name):
-    """
-    Plot stabilisation data.
+    """Plot stabilisation data.
 
     Parameters
     ----------
@@ -343,7 +346,6 @@ def plot_stabilisation(df, title, short_name):
     short_name : str
         short name for file
     """
-
     i = 0
     for index, row in df.iterrows():
         # Get label, variable, value, and pixel for title and image path
@@ -479,12 +481,13 @@ def plot_spectra(files):
     """
     c_div = 1 / len(files)
 
-    data_slide = title_image_slide(prs, f"Measured illumination spectra")
+    data_slide = title_image_slide(prs, "Measured illumination spectra")
 
     fig, ax = plt.subplots(1, 1, figsize=(A4_width, A4_height), dpi=300)
     for i, f in enumerate(files):
-        spectrum = np.genfromtxt(f, delimiter="\t")
-        ax.plot(spectrum[:, 0], spectrum[:, 1], color=cmap(i * c_div), label=f"{i}")
+        if os.path.getsize(f) != 0:
+            spectrum = np.genfromtxt(f, delimiter="\t")
+            ax.plot(spectrum[:, 0], spectrum[:, 1], color=cmap(i * c_div), label=f"{i}")
     ax.set_ylabel("Spectral irradiance (W/cm^2/nm)", fontsize="large")
     ax.set_ylim(0)
     ax.tick_params(direction="in", top=True, right=True, labelsize="large")
@@ -495,8 +498,8 @@ def plot_spectra(files):
     fig.tight_layout()
 
     # Format the figure layout, save to file, and add to ppt
-    image_png = os.path.join(image_folder, f"spectra.png")
-    image_svg = os.path.join(image_folder, f"spectra.svg")
+    image_png = os.path.join(image_folder, "spectra.png")
+    image_svg = os.path.join(image_folder, "spectra.svg")
     fig.savefig(image_png)
     fig.savefig(image_svg)
     data_slide.shapes.add_picture(
@@ -509,15 +512,24 @@ def plot_spectra(files):
 
 # parse args
 args = parse()
-print(args.log_filepath, args.fix_ymin_0)
 
 if args.fix_ymin_0 == "yes":
     fix_ymin_0 = True
 else:
     fix_ymin_0 = False
 
+# format data if from Python program
+(
+    analysis_folder,
+    start_time,
+    username,
+    experiment_title,
+) = format_python_data.format_folder(pathlib.Path(args.folder))
+
+# generate log file
+log_filepath = log_generator.generate_log(analysis_folder)
+
 # Define folder and file paths
-log_filepath = args.log_filepath
 folderpath, log_filename = os.path.split(log_filepath)
 folderpath_split = recursive_path_split(folderpath)
 if folderpath_split[-1] == "LOGS":
@@ -541,9 +553,7 @@ else:
 print("Done")
 
 # Get username, date, and title from folderpath for the ppt title page
-username = folderpath_split[-2]
-exp_date = time.strftime("%A %B %d %Y", time.localtime(os.path.getctime(log_filepath)))
-experiment_title = folderpath_split[-1]
+exp_date = time.strftime("%A %B %d %Y", time.localtime(start_time))
 
 # Set physical constants
 kB = constants.Boltzmann
@@ -893,14 +903,14 @@ for name, group in grouped_by_label:
     ax.tick_params(direction="in", top=True, right=True, labelsize="small")
     ax.set_xlabel("Applied bias (V)", fontsize="small")
     ax.set_ylabel("J (mA/cm^2)", fontsize="small")
-    if voc_sign > 0:
-        ax.set_xlim([np.min(data_fwd[:, 0]), max_group_voc + 0.2])
-    else:
-        ax.set_xlim([-max_group_voc - 0.2, np.max(data_fwd[:, 0])])
-    if jsc_sign > 0:
-        ax.set_ylim([-np.max(np.absolute(rev_j)), max_group_jsc * 1.4])
-    else:
-        ax.set_ylim([-max_group_jsc * 1.4, np.max(np.absolute(rev_j))])
+    # if voc_sign > 0:
+    #     ax.set_xlim([np.min(data_fwd[:, 0]), max_group_voc + 0.2])
+    # else:
+    #     ax.set_xlim([-max_group_voc - 0.2, np.max(data_fwd[:, 0])])
+    # if jsc_sign > 0:
+    #     ax.set_ylim([-np.max(np.absolute(rev_j)), max_group_jsc * 1.2])
+    # else:
+    #     ax.set_ylim([-max_group_jsc * 1.2, np.max(np.absolute(rev_j))])
 
     # Adjust plot width to add legend outside plot area
     box = ax.get_position()
@@ -1079,15 +1089,15 @@ for file, scan_dir in zip(best_pixels["relativepath"], best_pixels["scandirectio
     ax.tick_params(direction="in", top=True, right=True, labelsize="small")
     ax.set_xlabel("Applied bias (V)", fontsize="small")
     ax.set_ylabel("J (mA/cm^2)", fontsize="small")
-    if voc_signs[i] > 0:
-        ax.set_xlim([np.min(JV_light_fwd_data[:, 0]), vocs[i] + 0.2])
-    else:
-        ax.set_xlim([-vocs[i] - 0.2, np.max(JV_light_fwd_data[:, 0])])
+    # if voc_signs[i] > 0:
+    #     ax.set_xlim([np.min(JV_light_fwd_data[:, 0]), vocs[i] + 0.1])
+    # else:
+    #     ax.set_xlim([-vocs[i] - 0.1, np.max(JV_light_fwd_data[:, 0])])
 
-    if jsc_signs[i] > 0:
-        ax.set_ylim([-np.max(np.absolute(rev_j)), jscs[i] * 1.4])
-    else:
-        ax.set_ylim([-jscs[i] * 1.4, np.max(np.absolute(rev_j))])
+    # if jsc_signs[i] > 0:
+    #     ax.set_ylim([-np.max(np.absolute(rev_j)), jscs[i] * 1.2])
+    # else:
+    #     ax.set_ylim([-jscs[i] * 1.2, np.max(np.absolute(rev_j))])
 
     ax.legend(loc="best")
 
@@ -1249,14 +1259,14 @@ for name, group in all_jvs_groups:
     ax.tick_params(direction="in", top=True, right=True, labelsize="small")
     ax.set_xlabel("Applied bias (V)", fontsize="small")
     ax.set_ylabel("J (mA/cm^2)", fontsize="small")
-    if voc_sign > 0:
-        ax.set_xlim([np.min(data_fwd[:, 0]), max_group_voc + 0.25])
-    else:
-        ax.set_xlim([-max_group_voc - 0.25, np.max(data_fwd[:, 0])])
-    if jsc_sign > 0:
-        ax.set_ylim([-np.max(np.absolute(rev_j)), max_group_jsc * 1.4])
-    else:
-        ax.set_ylim([-max_group_jsc * 1.4, np.max(np.absolute(rev_j))])
+    # if voc_sign > 0:
+    #     ax.set_xlim([np.min(data_fwd[:, 0]), max_group_voc + 0.2])
+    # else:
+    #     ax.set_xlim([-max_group_voc - 0.2, np.max(data_fwd[:, 0])])
+    # if jsc_sign > 0:
+    #     ax.set_ylim([-np.max(np.absolute(rev_j)), max_group_jsc * 1.2])
+    # else:
+    #     ax.set_ylim([-max_group_jsc * 1.2, np.max(np.absolute(rev_j))])
 
     # Adjust plot width to add legend outside plot area
     box = ax.get_position()
@@ -1289,5 +1299,5 @@ print("Done")
 
 # Save powerpoint presentation
 print("Saving powerpoint presentation...", end="", flush=True)
-prs.save(log_filepath.replace(".log", "_summary.pptx"))
+prs.save(str(log_filepath).replace(".log", "_summary.pptx"))
 print("Done")
