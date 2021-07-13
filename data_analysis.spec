@@ -1,86 +1,45 @@
-# -*- mode: python -*-
+# -*- mode: python ; coding: utf-8 -*-
 
-import os
+import pathlib
 import site
-import sys
 
 import gooey
 
-# get paths to gooey files
 gooey_root = os.path.dirname(gooey.__file__)
-gooey_languages = Tree(os.path.join(gooey_root, 'languages'), prefix = 'gooey/languages')
-gooey_images = Tree(os.path.join(gooey_root, 'images'), prefix = 'gooey/images')
-
-# get paths to required data and dlls
 site_pkgs = site.getsitepackages()[1]
 pptx_templates = os.path.join(site_pkgs, r'pptx\templates\default.pptx')
-scipy_dlls = os.path.join(site_pkgs, r'scipy\extra-dll')
 
-# sys.modules['FixTk'] = None
+cwd = pathlib.Path.cwd()
+filename = "data_analysis.py"
 
 block_cipher = None
 
-a = Analysis(['data_analysis.py'],
+a = Analysis([filename],
+             pathex=[str(cwd.joinpath(filename))],
+             binaries=[],
              datas=[(pptx_templates, '.\\pptx\\templates\\')],
-             pathex=[scipy_dlls],
              hiddenimports=[],
-             hookspath=None,
-             runtime_hooks=None,
-             excludes=['jedi',
-                       'pyqt',
-                       'PyQt5',
-                       'lib2to3',
-                       'tcl',
-                       'zmq',
-                       'pyzmq',
-                       'IPython']
-             )
-
-#a = Analysis(['data_analysis.py'],
-#             datas=[(pptx_templates, '.\\pptx\\templates\\')],
-#             pathex=[scipy_dlls],
-#             hiddenimports=[],
-#             hookspath=None,
-#             runtime_hooks=None,
-#             excludes=['jedi',
-#                       'pyqt',
-#                       'PyQt5',
-#                       'lib2to3',
-#                       'FixTk',
-#                       'tcl',
-#                       'tk',
-#                       '_tkinter',
-#                       'tkinter',
-#                       'Tkinter',
-#                       'zmq',
-#                       'pyzmq',
-#                       'IPython']
-#             )
-
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
-
-options = [('u', None, 'OPTION')]
-
+             hookspath=[],
+             runtime_hooks=[],
+             excludes=[],
+             win_no_prefer_redirects=False,
+             win_private_assemblies=False,
+             cipher=block_cipher,
+             noarchive=False)
+pyz = PYZ(a.pure, a.zipped_data,
+             cipher=block_cipher)
 exe = EXE(pyz,
           a.scripts,
           a.binaries,
           a.zipfiles,
           a.datas,
-          options,
-          gooey_languages,
-          gooey_images,
-          name='data_analysis',
+          [],
+          name=filename.strip(".py"),
           debug=True,
+          bootloader_ignore_signals=False,
           strip=False,
           upx=True,
-          console=False)
-
-# coll = COLLECT(exe,
-#                a.binaries,
-#                a.zipfiles,
-#                a.datas,
-#                gooey_languages,
-#                gooey_images,
-#                strip=False,
-#                upx=True,
-#                name='data_analysis')
+          upx_exclude=[],
+          runtime_tmpdir=None,
+          console=False,
+          icon=os.path.join(gooey_root, 'images', 'program_icon.ico'))
