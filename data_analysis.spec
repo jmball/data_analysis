@@ -70,7 +70,7 @@ exe = EXE(pyz,
           gooey_languages,
           gooey_images,
           name='data_analysis',
-          debug=False,
+          debug=True,
           strip=False,
           upx=True,
           console=False)

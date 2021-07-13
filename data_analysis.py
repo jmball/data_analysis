@@ -22,8 +22,8 @@ from scipy import constants
 
 from gooey import Gooey, GooeyParser
 
-import format_python_data
-import log_generator
+from format_python_data import format_folder
+from log_generator import generate_log
 
 # supress warnings
 warnings.filterwarnings("ignore")
@@ -163,14 +163,27 @@ def plot_boxplots(df, params, kind, grouping, variable="", i=0, data_slide=None)
     data_slide : prs object
         current slide. Useful if carrying on from previous plots.
     """
+    plot_labels_dict = {
+        "jsc": {"J-V": "Jsc (mA/cm^2)"},
+        "voc": {"J-V": "Voc (V)"},
+        "pce": {"J-V": "PCE (%)"},
+        "vmpp": {"J-V": "Vmp (V)"},
+        "jmpp": {"J-V": "Jmp (mA/cm^2)"},
+        "jss": {"SSPO": "J_mp_ss (mA/cm^2)", "SSJsc": "J_sc_ss (mA/cm^2)"},
+        "pcess": {"SSPO": "PCE_ss (%)"},
+        "vss": {"SSPO": "V_mp_ss (V)", "SSVoc": "V_oc_ss (V)"},
+        "ff": {"J-V": "FF"},
+        "quasiff": {"SSJsc": "Quasi-FF"},
+        "rsvfwd": {"J-V": "Rs (ohms)"},
+        "rsh": {"J-V": "Rsh (ohms)"},
+        "pcesspcejv": {"SSPO": "PCE_ss/PCE_jv"},
+    }
+
     j = 0
     for p in params:
         # create a new slide for every 4 plots
         if (i + j) % 4 == 0:
-            if kind == "J-V":
-                ss_or_jv = kind
-            else:
-                ss_or_jv = "Steady-state"
+            ss_or_jv = kind if kind == "J-V" else "Steady-state"
             data_slide = title_image_slide(
                 prs,
                 f"{variable} {ss_or_jv} Parameters by {grouping}, page {int((i + j) / 4)}",
@@ -180,96 +193,44 @@ def plot_boxplots(df, params, kind, grouping, variable="", i=0, data_slide=None)
         fig, ax = plt.subplots(
             1, 1, dpi=300, **{"figsize": (A4_width / 2, A4_height / 2)}
         )
-        if kind == "J-V":
-            sns.boxplot(
-                x=df[grouping],
-                y=np.absolute(df[p].astype(float)),
-                hue=df["scandirection"],
-                palette="deep",
-                linewidth=0.5,
-                ax=ax,
-                showfliers=False,
-            )
-            sns.swarmplot(
-                x=df[grouping],
-                y=np.absolute(df[p].astype(float)),
-                hue=df["scandirection"],
-                palette="muted",
-                size=3,
-                linewidth=0.5,
-                edgecolor="gray",
-                dodge=True,
-                ax=ax,
-            )
-        elif kind in ["SSPO", "SSJsc", "SSVoc"]:
-            sns.boxplot(
-                x=df[grouping],
-                y=np.absolute(df[p].astype(float)),
-                palette="deep",
-                linewidth=0.5,
-                ax=ax,
-                showfliers=False,
-            )
-            sns.swarmplot(
-                x=df[grouping],
-                y=np.absolute(df[p].astype(float)),
-                palette="muted",
-                size=3,
-                linewidth=0.5,
-                edgecolor="gray",
-                dodge=True,
-                ax=ax,
-            )
+
+        hue = df["scandirection"] if kind == "J-V" else None
+        sns.boxplot(
+            x=df[grouping],
+            y=np.absolute(df[p].astype(float)),
+            hue=hue,
+            palette="deep",
+            linewidth=0.5,
+            ax=ax,
+            showfliers=False,
+        )
+        sns.swarmplot(
+            x=df[grouping],
+            y=np.absolute(df[p].astype(float)),
+            hue=hue,
+            palette="muted",
+            size=3,
+            linewidth=0.5,
+            edgecolor="gray",
+            dodge=True,
+            ax=ax,
+        )
+
         handles, labels = ax.get_legend_handles_labels()
         ax.legend(handles[:2], labels[:2], fontsize="small")
         ax.set_xticklabels(
             ax.get_xticklabels(), fontsize="small", rotation=45, ha="right"
         )
         ax.set_xlabel("")
-        if p in ["jsc", "voc", "pce", "vmpp", "jmpp"]:
+        if p in ["jsc", "voc", "pce", "vmpp", "jmpp", "jss", "pcess", "vss"]:
             if fix_ymin_0:
                 ax.set_ylim(0)
-            if p == "jsc":
-                ax.set_ylabel("Jsc (mA/cm^2)", fontsize="small")
-            elif p == "voc":
-                ax.set_ylabel("Voc (V)", fontsize="small")
-            elif p == "pce":
-                ax.set_ylabel("PCE (%)", fontsize="small")
-            elif p == "vmpp":
-                ax.set_ylabel("Vmp (V)", fontsize="small")
-            elif p == "jmpp":
-                ax.set_ylabel("Jmp (mA/cm^2)", fontsize="small")
-        elif p == "ff":
+        elif p in ["ff", "quasiff"]:
             if fix_ymin_0:
                 ax.set_ylim((0, 1))
-            ax.set_ylabel("FF", fontsize="small")
-        elif p == "quasiff":
-            if fix_ymin_0:
-                ax.set_ylim((0, 1))
-            ax.set_ylabel("Quasi-FF", fontsize="small")
-        elif p in ["rsvfwd", "rsh"]:
-            # ax.set_yscale('log')
-            if p == "rsvfwd":
-                ax.set_ylabel("Rs (ohms)", fontsize="small")
-            elif p == "rsh":
-                ax.set_ylabel("Rsh (ohms)", fontsize="small")
-        elif p in ["jss", "pcess", "vss"]:
-            if fix_ymin_0:
-                ax.set_ylim(0)
-            if p == "jss":
-                if kind == "SSPO":
-                    ax.set_ylabel("J_mp_ss (mA/cm^2)", fontsize="small")
-                else:
-                    ax.set_ylabel("J_sc_ss (mA/cm^2)", fontsize="small")
-            elif p == "pcess":
-                ax.set_ylabel("PCE_ss (%)", fontsize="small")
-            elif p == "vss":
-                if kind == "SSPO":
-                    ax.set_ylabel("V_mp_ss (V)", fontsize="small")
-                else:
-                    ax.set_ylabel("V_oc_ss (V)", fontsize="small")
-        elif p == "pcesspcejv":
-            ax.set_ylabel("PCE_ss/PCE_jv", fontsize="small")
+
+        ax.set_ylabel(plot_labels_dict[p][kind], fontsize="small")
+
         fig.tight_layout()
 
         # save figure and add to powerpoint
@@ -519,15 +480,12 @@ else:
     fix_ymin_0 = False
 
 # format data if from Python program
-(
-    analysis_folder,
-    start_time,
-    username,
-    experiment_title,
-) = format_python_data.format_folder(pathlib.Path(args.folder))
+(analysis_folder, start_time, username, experiment_title,) = format_folder(
+    pathlib.Path(args.folder)
+)
 
 # generate log file
-log_filepath = log_generator.generate_log(analysis_folder)
+log_filepath = generate_log(analysis_folder)
 
 # Define folder and file paths
 folderpath, log_filename = os.path.split(log_filepath)
