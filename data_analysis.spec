@@ -6,8 +6,11 @@ import site
 import gooey
 
 gooey_root = os.path.dirname(gooey.__file__)
-site_pkgs = site.getsitepackages()[1]
-pptx_templates = os.path.join(site_pkgs, r'pptx\templates\default.pptx')
+for path in site.getsitepackages():
+    if path.endswith("site-packages"):
+        site_pkgs = pathlib.Path(path)
+        break
+pptx_templates = site_pkgs.joinpath('pptx').joinpath('templates').joinpath('default.pptx')
 
 cwd = pathlib.Path.cwd()
 filename = "data_analysis.py"
@@ -17,7 +20,7 @@ block_cipher = None
 a = Analysis([filename],
              pathex=[str(cwd.joinpath(filename))],
              binaries=[],
-             datas=[(pptx_templates, '.\\pptx\\templates\\')],
+             datas=[(str(pptx_templates), str(pathlib.Path('.').joinpath('pptx').joinpath('templates')))],
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],
