@@ -135,3 +135,5 @@ testing/
 old-builds/
 
 .vscode
+
+.DS_store
