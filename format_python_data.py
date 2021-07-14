@@ -77,6 +77,8 @@ def format_folder(data_folder):
             start_time, ext1, ext2 = rest.split(".")
             pixel = pixel.strip("device")
 
+            print(file)
+
             key = f"{label}_{pixel}"
             # add dictionary key for new pixel to store derived parameters from other
             # files
@@ -160,7 +162,7 @@ def format_folder(data_folder):
                     pce = np.absolute(mp / intensity)
                     rsvoc = f_r_diff(voc)
 
-                    if "liv1" in ext1:
+                    if ("liv" in ext1) and ("ivpce" not in pixels_dict[key]):
                         # reset stored jv pce if first liv, for PCE_SS/PCE_JV calc
                         pixels_dict[key]["ivpce"] = pce
                     elif pce > pixels_dict[key]["ivpce"]:
