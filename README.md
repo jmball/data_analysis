@@ -23,7 +23,7 @@ Or to skip the GUI use:
 ```
 python data_analysis.py --ignore-gooey "[folder]" [fix_ymin_0]
 ```
-where \[folder\] is the absolute path to folder containing data and fix_min_0 is a flag indicating whether you want the y-axes of boxplots to start from zero (`yes`), or to autoscale (`no`).
+where `[folder]` is the absolute path to folder containing data and `fix_min_0` is a flag indicating whether you want the y-axes of boxplots to start from zero (`yes`), or to autoscale (`no`).
 
 #### Linux Prerequisites
 In order to install wxPython included in the requirements.txt file it's necessary to first install the prerequisites detailed [here](https://github.com/wxWidgets/Phoenix#prerequisites). In addition, if your distribution's package manager doesn't include tkinter with your Python installation (e.g. Ubuntu), it must be installed separately (e.g. `sudo apt install python3.x-tk`, where x denotes your version of python3).
