@@ -110,7 +110,13 @@ def format_folder(data_folder):
                 lvext = ext1
 
                 r_diff = np.gradient(meas_voltage, meas_current)
-                f_r_diff = sp.interpolate.interp1d(meas_voltage, meas_current)
+                f_r_diff = sp.interpolate.interp1d(
+                    meas_voltage,
+                    meas_current,
+                    kind="linear",
+                    bounds_error=False,
+                    fill_value=0,
+                )
 
                 vss = 0
                 jss = 0
