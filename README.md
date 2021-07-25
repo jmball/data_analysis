@@ -15,11 +15,15 @@ Install the dependencies into the virtual environment using:
 ```
 pip install -r requirements.txt
 ```
-To run the program with a GUI call:
+To run the program with a GUI on Windows or Linux call:
 ```
 python data_analysis.py
 ```
-Or to skip the GUI use:
+or on a Mac call:
+```
+pythonw data_analysis.py
+```
+To skip the GUI use:
 ```
 python data_analysis.py --ignore-gooey "[folder]" [fix_ymin_0]
 ```
