@@ -77,8 +77,6 @@ def format_folder(data_folder):
             start_time, ext1, ext2 = rest.split(".")
             pixel = pixel.strip("device")
 
-            print(file)
-
             key = f"{label}_{pixel}"
             # add dictionary key for new pixel to store derived parameters from other
             # files
@@ -102,6 +100,9 @@ def format_folder(data_folder):
             time = data[:, 2]
             status = data[:, 3]
 
+            # measurements not in compliance
+            ncompliance = [not (int(bin(int(s))[-4])) for s in status]
+
             timestamp = int(start_time) + time[0]
 
             area = meas_current[0] / (meas_j[0] / 1000)
@@ -111,8 +112,8 @@ def format_folder(data_folder):
 
                 r_diff = np.gradient(meas_voltage, meas_current)
                 f_r_diff = sp.interpolate.interp1d(
-                    meas_voltage,
-                    meas_current,
+                    meas_voltage[ncompliance],
+                    r_diff[ncompliance],
                     kind="linear",
                     bounds_error=False,
                     fill_value=0,
@@ -124,8 +125,8 @@ def format_folder(data_folder):
                 quasiff = 0
                 pcess_pcejv = 0
                 scan_rate = (meas_voltage[-1] - meas_voltage[0]) / rel_time[-1]
-                r_diff_start = r_diff[r_diff >= 0][1]
-                r_diff_end = r_diff[r_diff >= 0][-2]
+                r_diff_start = r_diff[ncompliance][r_diff[ncompliance] >= 0][1]
+                r_diff_end = r_diff[ncompliance][r_diff[ncompliance] >= 0][-2]
                 if r_diff_end > r_diff_start:
                     scan_dir = "fwd"
                     rsfwd = r_diff[1]
@@ -137,23 +138,23 @@ def format_folder(data_folder):
 
                 if liv:
                     f_j = sp.interpolate.interp1d(
-                        meas_voltage,
-                        meas_j,
+                        meas_voltage[ncompliance],
+                        meas_j[ncompliance],
                         kind="linear",
                         bounds_error=False,
                         fill_value=0,
                     )
                     f_v = sp.interpolate.interp1d(
-                        meas_j,
-                        meas_voltage,
+                        meas_j[ncompliance],
+                        meas_voltage[ncompliance],
                         kind="linear",
                         bounds_error=False,
                         fill_value=0,
                     )
                     dpdv = np.gradient(meas_p, meas_voltage)
                     f_dpdv = sp.interpolate.interp1d(
-                        dpdv,
-                        meas_voltage,
+                        dpdv[ncompliance],
+                        meas_voltage[ncompliance],
                         kind="linear",
                         bounds_error=False,
                         fill_value=0,
