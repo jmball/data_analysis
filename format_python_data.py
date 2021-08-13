@@ -224,7 +224,7 @@ def format_folder(data_folder):
                     quasiff = (
                         pixels_dict[key]["quasipce"]
                         * intensity
-                        / (np.absolute(pixels_dict[key]["quasivoc"]) * jss)
+                        / (np.absolute(pixels_dict[key]["quasivoc"]) * np.absolute(jss))
                     )
                     lvext = "jsc"
 

@@ -480,9 +480,12 @@ else:
     fix_ymin_0 = False
 
 # format data if from Python program
-(analysis_folder, start_time, username, experiment_title,) = format_folder(
-    pathlib.Path(args.folder)
-)
+(
+    analysis_folder,
+    start_time,
+    username,
+    experiment_title,
+) = format_folder(pathlib.Path(args.folder))
 
 # generate log file
 log_filepath = generate_log(analysis_folder)
