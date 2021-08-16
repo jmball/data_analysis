@@ -681,7 +681,7 @@ if len(spectrum_files) > 0:
 print("Done")
 
 print("Plotting boxplots and barcharts...", end="", flush=True)
-jv_params = ["jsc", "voc", "ff", "pce", "vmpp", "jmpp", "rsvfwd", "rsh"]
+jv_params = ["jsc", "voc", "ff", "pce", "vmpp", "jmpp", "rsvfwd"]
 spo_params = ["pcess", "pcesspcejv"]
 sjsc_params = ["jss", "quasiff"]
 svoc_params = ["vss"]
