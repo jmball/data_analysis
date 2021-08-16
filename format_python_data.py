@@ -100,6 +100,8 @@ def format_folder(data_folder):
             time = data[:, 2]
             status = data[:, 3]
 
+            ascending = meas_voltage[0] < meas_voltage[-1]
+
             # measurements not in compliance
             ncompliance = [not (int(bin(int(s))[-4])) for s in status]
 
@@ -107,7 +109,8 @@ def format_folder(data_folder):
 
             area = meas_current[0] / (meas_j[0] / 1000)
 
-            if div or (liv := "liv" in ext1):
+            liv = "liv" in ext1
+            if div or liv:
                 lvext = ext1
 
                 r_diff = np.gradient(meas_voltage, meas_current)
@@ -125,64 +128,61 @@ def format_folder(data_folder):
                 quasiff = 0
                 pcess_pcejv = 0
                 scan_rate = (meas_voltage[-1] - meas_voltage[0]) / rel_time[-1]
-                r_diff_start = r_diff[ncompliance][r_diff[ncompliance] >= 0][1]
-                r_diff_end = r_diff[ncompliance][r_diff[ncompliance] >= 0][-2]
-                if r_diff_end > r_diff_start:
-                    scan_dir = "fwd"
-                    rsfwd = r_diff[1]
-                else:
-                    scan_dir = "rev"
-                    rsfwd = r_diff[-2]
                 rsh = f_r_diff(0)
                 time_ss = 0
 
+                f_j = sp.interpolate.interp1d(
+                    meas_voltage[ncompliance],
+                    meas_j[ncompliance],
+                    kind="linear",
+                    bounds_error=False,
+                    fill_value=0,
+                )
+                f_v = sp.interpolate.interp1d(
+                    meas_j[ncompliance],
+                    meas_voltage[ncompliance],
+                    kind="linear",
+                    bounds_error=False,
+                    fill_value=0,
+                )
+                dpdv = np.gradient(meas_p, meas_voltage)
+                f_dpdv = sp.interpolate.interp1d(
+                    dpdv[ncompliance],
+                    meas_voltage[ncompliance],
+                    kind="linear",
+                    bounds_error=False,
+                    fill_value=0,
+                )
+
+                voc = f_v(0)
+                if ascending and (voc < 0):
+                    scan_dir = "fwd"
+                    rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][1]
+                elif not (ascending) and (voc < 0):
+                    scan_dir = "rev"
+                    rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][-2]
+                elif ascending and (voc >= 0):
+                    scan_dir = "rev"
+                    rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][-2]
+                elif not (ascending) and (voc >= 0):
+                    scan_dir = "fwd"
+                    rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][1]
+
+                jsc = f_j(0)
+                vmp = f_dpdv(0)
+                jmp = f_j(vmp)
+                ff = vmp * jmp / (jsc * voc)
+                mp = vmp * jmp
+                pce = np.absolute(mp / intensity)
+                rsvoc = f_r_diff(voc)
+
                 if liv:
-                    f_j = sp.interpolate.interp1d(
-                        meas_voltage[ncompliance],
-                        meas_j[ncompliance],
-                        kind="linear",
-                        bounds_error=False,
-                        fill_value=0,
-                    )
-                    f_v = sp.interpolate.interp1d(
-                        meas_j[ncompliance],
-                        meas_voltage[ncompliance],
-                        kind="linear",
-                        bounds_error=False,
-                        fill_value=0,
-                    )
-                    dpdv = np.gradient(meas_p, meas_voltage)
-                    f_dpdv = sp.interpolate.interp1d(
-                        dpdv[ncompliance],
-                        meas_voltage[ncompliance],
-                        kind="linear",
-                        bounds_error=False,
-                        fill_value=0,
-                    )
-
-                    jsc = f_j(0)
-                    voc = f_v(0)
-                    vmp = f_dpdv(0)
-                    jmp = f_j(vmp)
-                    ff = vmp * jmp / (jsc * voc)
-                    mp = vmp * jmp
-                    pce = np.absolute(mp / intensity)
-                    rsvoc = f_r_diff(voc)
-
                     if ("liv" in ext1) and ("ivpce" not in pixels_dict[key]):
                         # reset stored jv pce if first liv, for PCE_SS/PCE_JV calc
                         pixels_dict[key]["ivpce"] = pce
                     elif pce > pixels_dict[key]["ivpce"]:
                         # update if new pce is higher
                         pixels_dict[key]["ivpce"] = pce
-                else:
-                    jsc = 0
-                    voc = 0
-                    ff = 0
-                    pce = 0
-                    vmp = 0
-                    jmp = 0
-                    rsvoc = 0
             elif (vt := "vt" in ext1) or (mpp := "mpp" in ext1) or (it := "it" in ext1):
                 r_diff = np.zeros(len(data[:, 0]))
                 jsc = 0
