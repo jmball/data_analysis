@@ -10,6 +10,37 @@ import scipy as sp
 import scipy.interpolate
 
 
+def sort_measurement_files(folder):
+    """Sort a folder of measurement data by order of measurements.
+
+    This doesn't strictly preserve measurement order but rather groups files by
+    measurement type in the experiment order.
+
+    Parameters
+    ----------
+    folder : pathlib.Path
+        Folder of data to sort.
+
+    Returns
+    -------
+    sorted_files : list
+        Sorted folder of data.
+    """
+    # get the set of unique relative file names excluding extensions
+    unique_device_file_names = set(
+        [f.parts[-1].split(".")[0] for f in folder.iterdir()]
+    )
+
+    # loop over this set of unique devices and sort by measurement order
+    search_exts = [".vt.tsv", ".div*.tsv", ".liv*.tsv", ".mppt.tsv", ".it.tsv"]
+    sorted_list = []
+    for device_file_name in unique_device_file_names:
+        for ext in search_exts:
+            sorted_list.extend(sorted(list(folder.glob(f"{device_file_name}{ext}"))))
+
+    return sorted_list
+
+
 def format_folder(data_folder):
     """Change all the data in a folder to a common format.
 
@@ -65,9 +96,15 @@ def format_folder(data_folder):
 
         processed_files = [f for f in processed_folder.iterdir()]
 
-        # sort by date modified to preserve measurement order
-        # this allows calculation of derived parameters from other files, e.g. quasi-ff
-        processed_files.sort(key=os.path.getmtime)
+        # sort files by measurement order to allows calculation of derived parameters
+        # from other files, e.g. quasi-ff
+        if len(set([os.path.getmtime(f) for f in processed_files])) == 1:
+            # date modified info hasn't been preserved so data has probably been copied
+            # from somewhere else. Fall back on manual determination.
+            processed_files = sort_measurement_files(processed_folder)
+        else:
+            # date modified info is available so use it to infer measurement order
+            processed_files.sort(key=os.path.getmtime)
 
         pixels_dict = {}
         for ix, file in enumerate(processed_files):
@@ -85,6 +122,10 @@ def format_folder(data_folder):
 
             # get columns into same format as LabVIEW output
             data = np.genfromtxt(file, delimiter="\t", skip_header=1)
+            if len(np.shape(data)) == 1:
+                # if there's only one row in a data file numpy will import it as a 1D
+                # array so convert it to 2D
+                data = np.array([data])
             rel_time = data[:, 2] - data[0, 2]
             set_voltage = [np.NaN] * len(data[:, 0])
             meas_voltage = data[:, 0]
@@ -114,13 +155,16 @@ def format_folder(data_folder):
                 lvext = ext1
 
                 r_diff = np.gradient(meas_voltage, meas_current)
-                f_r_diff = sp.interpolate.interp1d(
-                    meas_voltage[ncompliance],
-                    r_diff[ncompliance],
-                    kind="linear",
-                    bounds_error=False,
-                    fill_value=0,
-                )
+                try:
+                    f_r_diff = sp.interpolate.interp1d(
+                        meas_voltage[ncompliance],
+                        r_diff[ncompliance],
+                        kind="linear",
+                        bounds_error=False,
+                        fill_value=0,
+                    )
+                except ValueError:
+                    f_r_diff = lambda x: "nan"
 
                 vss = 0
                 jss = 0
@@ -131,52 +175,76 @@ def format_folder(data_folder):
                 rsh = f_r_diff(0)
                 time_ss = 0
 
-                f_j = sp.interpolate.interp1d(
-                    meas_voltage[ncompliance],
-                    meas_j[ncompliance],
-                    kind="linear",
-                    bounds_error=False,
-                    fill_value=0,
-                )
-                f_v = sp.interpolate.interp1d(
-                    meas_j[ncompliance],
-                    meas_voltage[ncompliance],
-                    kind="linear",
-                    bounds_error=False,
-                    fill_value=0,
-                )
+                try:
+                    f_j = sp.interpolate.interp1d(
+                        meas_voltage[ncompliance],
+                        meas_j[ncompliance],
+                        kind="linear",
+                        bounds_error=False,
+                        fill_value=0,
+                    )
+                except ValueError:
+                    f_j = lambda x: "nan"
+
+                try:
+                    f_v = sp.interpolate.interp1d(
+                        meas_j[ncompliance],
+                        meas_voltage[ncompliance],
+                        kind="linear",
+                        bounds_error=False,
+                        fill_value=0,
+                    )
+                except ValueError:
+                    f_v = lambda x: "nan"
+
                 dpdv = np.gradient(meas_p, meas_voltage)
-                f_dpdv = sp.interpolate.interp1d(
-                    dpdv[ncompliance],
-                    meas_voltage[ncompliance],
-                    kind="linear",
-                    bounds_error=False,
-                    fill_value=0,
-                )
+                try:
+                    f_dpdv = sp.interpolate.interp1d(
+                        dpdv[ncompliance],
+                        meas_voltage[ncompliance],
+                        kind="linear",
+                        bounds_error=False,
+                        fill_value=0,
+                    )
+                except ValueError:
+                    f_dpdv = lambda x: "nan"
 
                 voc = f_v(0)
-                if ascending and (voc < 0):
-                    scan_dir = "fwd"
-                    rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][1]
-                elif not (ascending) and (voc < 0):
-                    scan_dir = "rev"
-                    rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][-2]
-                elif ascending and (voc >= 0):
-                    scan_dir = "rev"
-                    rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][-2]
-                elif not (ascending) and (voc >= 0):
-                    scan_dir = "fwd"
-                    rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][1]
+                if type(voc) is not str:
+                    if ascending and (voc < 0):
+                        scan_dir = "fwd"
+                        rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][1]
+                    elif not (ascending) and (voc < 0):
+                        scan_dir = "rev"
+                        rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][-2]
+                    elif ascending and (voc >= 0):
+                        scan_dir = "rev"
+                        rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][-2]
+                    elif not (ascending) and (voc >= 0):
+                        scan_dir = "fwd"
+                        rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][1]
+                else:
+                    scan_dir = "NA"
+                    rsfwd = "nan"
 
                 jsc = f_j(0)
                 vmp = f_dpdv(0)
                 jmp = f_j(vmp)
-                ff = vmp * jmp / (jsc * voc)
-                mp = vmp * jmp
-                pce = np.absolute(mp / intensity)
+                if (
+                    (type(jsc) is not str)
+                    and (type(vmp) is not str)
+                    and (type(jmp) is not str)
+                ):
+                    ff = vmp * jmp / (jsc * voc)
+                    mp = vmp * jmp
+                    pce = np.absolute(mp / intensity)
+                else:
+                    ff = "nan"
+                    mp = "nan"
+                    pce = "nan"
                 rsvoc = f_r_diff(voc)
 
-                if liv:
+                if liv and (type(pce) is not str):
                     if ("liv" in ext1) and ("ivpce" not in pixels_dict[key]):
                         # reset stored jv pce if first liv, for PCE_SS/PCE_JV calc
                         pixels_dict[key]["ivpce"] = pce

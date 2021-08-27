@@ -195,15 +195,20 @@ def plot_boxplots(df, params, kind, grouping, variable="", i=0, data_slide=None)
         )
 
         hue = df["scandirection"] if kind == "J-V" else None
-        sns.boxplot(
-            x=df[grouping],
-            y=np.absolute(df[p].astype(float)),
-            hue=hue,
-            palette="deep",
-            linewidth=0.5,
-            ax=ax,
-            showfliers=False,
-        )
+        try:
+            sns.boxplot(
+                x=df[grouping],
+                y=np.absolute(df[p].astype(float)),
+                hue=hue,
+                palette="deep",
+                linewidth=0.5,
+                ax=ax,
+                showfliers=False,
+            )
+        except ValueError:
+            print(hue, grouping, p, kind)
+            print(df["jsc"])
+            raise ValueError("FAIL!")
         sns.swarmplot(
             x=df[grouping],
             y=np.absolute(df[p].astype(float)),
@@ -634,6 +639,9 @@ filtered_data = sorted_data[
     & (sorted_data.ff > 0)
     & (sorted_data.ff < 1)
     & (np.absolute(sorted_data.jsc) > 0.01)
+    & (type(sorted_data.jsc) is not str)
+    & (type(sorted_data.voc) is not str)
+    & (type(sorted_data.ff) is not str)
 ]
 filtered_data_fwd = filtered_data[filtered_data.scandirection == "fwd"]
 filtered_data_rev = filtered_data[filtered_data.scandirection == "rev"]
