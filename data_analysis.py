@@ -22,7 +22,7 @@ from scipy import constants
 
 from gooey import Gooey, GooeyParser
 
-from format_python_data import format_folder
+from format_data import format_folder
 from log_generator import generate_log
 
 # supress warnings
@@ -991,52 +991,53 @@ for file, scan_dir in zip(best_pixels["relativepath"], best_pixels["scandirectio
             skip_footer=num_cols,
             usecols=(2, 4),
         )
-    except OSError:
-        pass
 
-    JV_light_rev_data = JV_light_rev_data[~np.isnan(JV_light_rev_data).any(axis=1)]
-    JV_light_fwd_data = JV_light_fwd_data[~np.isnan(JV_light_fwd_data).any(axis=1)]
+        JV_light_rev_data = JV_light_rev_data[~np.isnan(JV_light_rev_data).any(axis=1)]
+        JV_light_fwd_data = JV_light_fwd_data[~np.isnan(JV_light_fwd_data).any(axis=1)]
 
-    try:
         JV_dark_rev_data = JV_dark_rev_data[~np.isnan(JV_dark_rev_data).any(axis=1)]
         JV_dark_fwd_data = JV_dark_fwd_data[~np.isnan(JV_dark_fwd_data).any(axis=1)]
-    except NameError:
-        pass
 
-    # plot light J-V curves
-    ax.plot(
-        JV_light_rev_data[:, 0], JV_light_rev_data[:, 1], label="rev", c="red", lw=2.0
-    )
-    ax.plot(
-        JV_light_fwd_data[:, 0], JV_light_fwd_data[:, 1], label="fwd", c="black", lw=2.0
-    )
+        # plot light J-V curves
+        ax.plot(
+            JV_light_rev_data[:, 0],
+            JV_light_rev_data[:, 1],
+            label="rev",
+            c="red",
+            lw=2.0,
+        )
+        ax.plot(
+            JV_light_fwd_data[:, 0],
+            JV_light_fwd_data[:, 1],
+            label="fwd",
+            c="black",
+            lw=2.0,
+        )
 
-    # find y-limits for plotting
-    fwd_j = []
-    rev_j = []
-    if (jsc_signs[i] > 0) & (voc_signs[i] > 0):
-        fwd_j.append(JV_light_rev_data[-1, 1])
-        rev_j.append(JV_light_rev_data[0, 1])
-        fwd_j.append(JV_light_fwd_data[0, 1])
-        rev_j.append(JV_light_fwd_data[-1, 1])
-    elif (jsc_signs[i] > 0) & (voc_signs[i] < 0):
-        fwd_j.append(JV_light_rev_data[0, 1])
-        rev_j.append(JV_light_rev_data[-1, 1])
-        fwd_j.append(JV_light_fwd_data[-1, 1])
-        rev_j.append(JV_light_fwd_data[0, 1])
-    elif (jsc_signs[i] < 0) & (voc_signs[i] > 0):
-        fwd_j.append(JV_light_rev_data[-1, 1])
-        rev_j.append(JV_light_rev_data[0, 1])
-        fwd_j.append(JV_light_fwd_data[0, 1])
-        rev_j.append(JV_light_fwd_data[-1, 1])
-    elif (jsc_signs[i] < 0) & (voc_signs[i] < 0):
-        fwd_j.append(JV_light_rev_data[0, 1])
-        rev_j.append(JV_light_rev_data[-1, 1])
-        fwd_j.append(JV_light_fwd_data[-1, 1])
-        rev_j.append(JV_light_fwd_data[0, 1])
+        # find y-limits for plotting
+        fwd_j = []
+        rev_j = []
+        if (jsc_signs[i] > 0) & (voc_signs[i] > 0):
+            fwd_j.append(JV_light_rev_data[-1, 1])
+            rev_j.append(JV_light_rev_data[0, 1])
+            fwd_j.append(JV_light_fwd_data[0, 1])
+            rev_j.append(JV_light_fwd_data[-1, 1])
+        elif (jsc_signs[i] > 0) & (voc_signs[i] < 0):
+            fwd_j.append(JV_light_rev_data[0, 1])
+            rev_j.append(JV_light_rev_data[-1, 1])
+            fwd_j.append(JV_light_fwd_data[-1, 1])
+            rev_j.append(JV_light_fwd_data[0, 1])
+        elif (jsc_signs[i] < 0) & (voc_signs[i] > 0):
+            fwd_j.append(JV_light_rev_data[-1, 1])
+            rev_j.append(JV_light_rev_data[0, 1])
+            fwd_j.append(JV_light_fwd_data[0, 1])
+            rev_j.append(JV_light_fwd_data[-1, 1])
+        elif (jsc_signs[i] < 0) & (voc_signs[i] < 0):
+            fwd_j.append(JV_light_rev_data[0, 1])
+            rev_j.append(JV_light_rev_data[-1, 1])
+            fwd_j.append(JV_light_fwd_data[-1, 1])
+            rev_j.append(JV_light_fwd_data[0, 1])
 
-    # try to plot dark J-V curves
-    try:
         ax.plot(
             JV_dark_rev_data[:, 0],
             JV_dark_rev_data[:, 1],
@@ -1051,37 +1052,41 @@ for file, scan_dir in zip(best_pixels["relativepath"], best_pixels["scandirectio
             c="blue",
             lw=2.0,
         )
-    except NameError:
+
+        # Format the axes
+        ax.tick_params(direction="in", top=True, right=True, labelsize="small")
+        ax.set_xlabel("Applied bias (V)", fontsize="small")
+        ax.set_ylabel("J (mA/cm^2)", fontsize="small")
+        # if voc_signs[i] > 0:
+        #     ax.set_xlim([np.min(JV_light_fwd_data[:, 0]), vocs[i] + 0.1])
+        # else:
+        #     ax.set_xlim([-vocs[i] - 0.1, np.max(JV_light_fwd_data[:, 0])])
+
+        # if jsc_signs[i] > 0:
+        #     ax.set_ylim([-np.max(np.absolute(rev_j)), jscs[i] * 1.2])
+        # else:
+        #     ax.set_ylim([-jscs[i] * 1.2, np.max(np.absolute(rev_j))])
+
+        ax.legend(loc="best")
+
+        # Format the figure layout, save to file, and add to ppt
+        image_png = os.path.join(
+            image_folder, f"jv_best_{variables[i]}_{variables[i]}.png"
+        )
+        image_svg = os.path.join(
+            image_folder, f"jv_best_{variables[i]}_{variables[i]}.svg"
+        )
+        fig.tight_layout()
+        fig.savefig(image_png)
+        fig.savefig(image_svg)
+        data_slide.shapes.add_picture(
+            image_png, left=lefts[str(i % 4)], top=tops[str(i % 4)], height=height
+        )
+
+        # Close figure
+        plt.close(fig)
+    except (OSError, NameError):
         pass
-
-    # Format the axes
-    ax.tick_params(direction="in", top=True, right=True, labelsize="small")
-    ax.set_xlabel("Applied bias (V)", fontsize="small")
-    ax.set_ylabel("J (mA/cm^2)", fontsize="small")
-    # if voc_signs[i] > 0:
-    #     ax.set_xlim([np.min(JV_light_fwd_data[:, 0]), vocs[i] + 0.1])
-    # else:
-    #     ax.set_xlim([-vocs[i] - 0.1, np.max(JV_light_fwd_data[:, 0])])
-
-    # if jsc_signs[i] > 0:
-    #     ax.set_ylim([-np.max(np.absolute(rev_j)), jscs[i] * 1.2])
-    # else:
-    #     ax.set_ylim([-jscs[i] * 1.2, np.max(np.absolute(rev_j))])
-
-    ax.legend(loc="best")
-
-    # Format the figure layout, save to file, and add to ppt
-    image_png = os.path.join(image_folder, f"jv_best_{variables[i]}_{variables[i]}.png")
-    image_svg = os.path.join(image_folder, f"jv_best_{variables[i]}_{variables[i]}.svg")
-    fig.tight_layout()
-    fig.savefig(image_png)
-    fig.savefig(image_svg)
-    data_slide.shapes.add_picture(
-        image_png, left=lefts[str(i % 4)], top=tops[str(i % 4)], height=height
-    )
-
-    # Close figure
-    plt.close(fig)
 
     i += 1
 

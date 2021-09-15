@@ -4,13 +4,14 @@ import argparse
 import csv
 import os
 import pathlib
+import shutil
 
 import numpy as np
 import scipy as sp
 import scipy.interpolate
 
 
-def sort_measurement_files(folder):
+def sort_python_measurement_files(folder):
     """Sort a folder of measurement data by order of measurements.
 
     This doesn't strictly preserve measurement order but rather groups files by
@@ -27,9 +28,7 @@ def sort_measurement_files(folder):
         Sorted folder of data.
     """
     # get the set of unique relative file names excluding extensions
-    unique_device_file_names = set(
-        [f.parts[-1].split(".")[0] for f in folder.iterdir()]
-    )
+    unique_device_file_names = {f.parts[-1].split(".")[0] for f in folder.iterdir()}
 
     # loop over this set of unique devices and sort by measurement order
     search_exts = [".vt.tsv", ".div*.tsv", ".liv*.tsv", ".mppt.tsv", ".it.tsv"]
@@ -39,6 +38,37 @@ def sort_measurement_files(folder):
             sorted_list.extend(sorted(list(folder.glob(f"{device_file_name}{ext}"))))
 
     return sorted_list
+
+
+def get_scan_dir_and_rsfwd(voc, ascending, r_diff, ncompliance):
+    """Determine the scan direction and forward bias series resistance of a sweep.
+
+    Scan direction is dermined based on the sweep direction and sign of Voc. This may
+    fail for truly dark I-V sweeps that don't have a Voc.
+
+    Parameters
+    ----------
+    voc : float or int
+        Open-circuit voltage.
+    ascending : bool
+        Flag for ascending sweep voltage.
+    r_diff : numpy.array
+        Differential resistance array.
+    ncompliance : list
+        Data points not in compliance.
+    """
+    if type(voc) is not str:
+        if ascending and voc < 0 or (ascending or voc >= 0) and not ascending:
+            scan_dir = "fwd"
+            rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][1]
+        else:
+            scan_dir = "rev"
+            rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][-2]
+    else:
+        scan_dir = "NA"
+        rsfwd = "nan"
+
+    return scan_dir, rsfwd
 
 
 def format_folder(data_folder):
@@ -66,6 +96,9 @@ def format_folder(data_folder):
     """
     processed_folder = data_folder.joinpath("processed")
     analysis_folder = data_folder.joinpath("analysis")
+    # create analysis folder if required
+    if analysis_folder.exists() is False:
+        analysis_folder.mkdir()
 
     # generate header
     iv_header = [
@@ -90,9 +123,6 @@ def format_folder(data_folder):
 
     if python_prog:
         print("This is probably a folder created with the Python measurement program.")
-        # create analysis folder if required
-        if analysis_folder.exists() is False:
-            analysis_folder.mkdir()
 
         processed_files = [f for f in processed_folder.iterdir()]
 
@@ -101,7 +131,7 @@ def format_folder(data_folder):
         if len(set([os.path.getmtime(f) for f in processed_files])) == 1:
             # date modified info hasn't been preserved so data has probably been copied
             # from somewhere else. Fall back on manual determination.
-            processed_files = sort_measurement_files(processed_folder)
+            processed_files = sort_python_measurement_files(processed_folder)
         else:
             # date modified info is available so use it to infer measurement order
             processed_files.sort(key=os.path.getmtime)
@@ -140,8 +170,6 @@ def format_folder(data_folder):
                 meas_pce = meas_p / intensity
             time = data[:, 2]
             status = data[:, 3]
-
-            ascending = meas_voltage[0] < meas_voltage[-1]
 
             # measurements not in compliance
             ncompliance = [not (int(bin(int(s))[-4])) for s in status]
@@ -210,22 +238,12 @@ def format_folder(data_folder):
                     f_dpdv = lambda x: "nan"
 
                 voc = f_v(0)
-                if type(voc) is not str:
-                    if ascending and (voc < 0):
-                        scan_dir = "fwd"
-                        rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][1]
-                    elif not (ascending) and (voc < 0):
-                        scan_dir = "rev"
-                        rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][-2]
-                    elif ascending and (voc >= 0):
-                        scan_dir = "rev"
-                        rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][-2]
-                    elif not (ascending) and (voc >= 0):
-                        scan_dir = "fwd"
-                        rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][1]
-                else:
-                    scan_dir = "NA"
-                    rsfwd = "nan"
+
+                # determine scan direction and forward bias series resistance
+                ascending = meas_voltage[0] < meas_voltage[-1]
+                scan_dir, rsfwd = get_scan_dir_and_rsfwd(
+                    voc, ascending, r_diff, ncompliance
+                )
 
                 jsc = f_j(0)
                 vmp = f_dpdv(0)
@@ -378,14 +396,71 @@ def format_folder(data_folder):
         print(
             f"Formatting complete! Formatted data can be found in: {analysis_folder}."
         )
-        return analysis_folder, int(start_time), username, experiment_title
     else:
         print("This is probably a folder created with the LabVIEW measurement program.")
-        print("Nothing to format.")
+
         experiment_title = str(data_folder.parts[-1])
         start_time = experiment_title.split("_")[1]
         username = str(data_folder.parts[-2])
-        return data_folder, int(start_time), username, experiment_title
+
+        extensions = [".voc", ".liv1", ".liv2", ".mpp", ".jsc", ".div1", ".div2"]
+        # TODO: sort by date created
+        data_files = [f for f in data_folder.iterdir() if f.suffix in extensions]
+
+        for file in data_files:
+            extension = file.suffix
+            new_file = analysis_folder.joinpath(file.parts[-1])
+            if extension in [".liv1", ".liv2", ".div1", ".div2"]:
+                with open(file, "r") as f:
+                    reader = csv.reader(f, delimiter="\t")
+                    header = []
+                    data_cols = 0
+                    data = []
+                    footer = []
+                    for ix, row in enumerate(reader):
+                        if ix == 0:
+                            header = row
+                            data_cols = len(row)
+                        elif len(row) == data_cols:
+                            data.append(row)
+                        else:
+                            footer.append(row)
+
+                data = np.array(data, dtype=float)
+                meas_voltage = data[:, 2]
+                r_diff = data[:, -1]
+                status = data[:, -2].astype(int)
+
+                # measurements not in compliance
+                ncompliance = [not (int(bin(int(s))[-4])) for s in status]
+
+                # get details from footer
+                scan_dir_ix = None
+                voc = "nan"
+                for ix, row in enumerate(footer):
+                    if "Scan direction" in row:
+                        scan_dir_ix = ix
+                    elif "Voc (V)" in row:
+                        voc = float(row[1])
+
+                # determine scan direction
+                ascending = meas_voltage[0] < meas_voltage[-1]
+                scan_dir, _ = get_scan_dir_and_rsfwd(
+                    voc, ascending, r_diff, ncompliance
+                )
+
+                if scan_dir_ix is not None:
+                    footer[scan_dir_ix][1] = scan_dir
+
+                with open(new_file, "w") as f:
+                    writer = csv.writer(f, delimiter="\t")
+                    writer.writerow(header)
+                    writer.writerows(data)
+                    writer.writerows(footer)
+            else:
+                shutil.copy2(file, new_file)
+
+    return analysis_folder, int(start_time), username, experiment_title
 
 
 if __name__ == "__main__":
