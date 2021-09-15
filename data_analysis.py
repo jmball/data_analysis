@@ -11,6 +11,7 @@ matplotlib.use("TkAgg")
 
 import matplotlib.pyplot as plt
 import numpy as np
+import packaging.version
 import pandas as pd
 import scipy as sp
 import seaborn as sns
@@ -22,8 +23,11 @@ from scipy import constants
 
 from gooey import Gooey, GooeyParser
 
+from check_release_version import get_latest_release_version, releases_url
 from format_data import format_folder
 from log_generator import generate_log
+
+__version__ = "1.0.1"
 
 # supress warnings
 warnings.filterwarnings("ignore")
@@ -34,9 +38,23 @@ cmap = plt.cm.get_cmap("viridis")
 
 @Gooey(program_name="Data Analysis")
 def parse():
-    """Parse command line arguments to Gooey GUI"""
+    """Parse command line arguments to Gooey GUI."""
+    desc = "Analyse solar simulator data and generate a report."
 
-    desc = "Analyse solar simulator data and generate a report"
+    # check if latest release on github is newer than currently running version
+    # if so, let the user know by editing the description string
+    latest_release_version = get_latest_release_version()
+    if latest_release_version is None:
+        desc += (
+            "\n\nCould not determine latest release version. Check internet connection."
+        )
+    elif packaging.version.parse(latest_release_version) > packaging.version.parse(
+        __version__
+    ):
+        desc += f"\n\nNEW VERSION AVAILABLE! Download it from: {releases_url}"
+    else:
+        desc += f"\n\nYou're running the latest version: {__version__}"
+
     parser = GooeyParser(description=desc)
     req = parser.add_argument_group(gooey_options={"columns": 1})
     req.add_argument(
@@ -53,8 +71,7 @@ def parse():
         choices=["yes", "no"],
         default="yes",
     )
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def round_sig_fig(x, sf):
