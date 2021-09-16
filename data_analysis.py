@@ -1,5 +1,6 @@
 """Generate a report of solar cell measurement data."""
 
+import logging
 import os
 import pathlib
 import time
@@ -27,7 +28,7 @@ from check_release_version import get_latest_release_version, releases_url
 from format_data import format_folder
 from log_generator import generate_log
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 # supress warnings
 warnings.filterwarnings("ignore")
@@ -36,7 +37,7 @@ warnings.filterwarnings("ignore")
 cmap = plt.cm.get_cmap("viridis")
 
 
-@Gooey(program_name="Data Analysis")
+@Gooey(program_name="Data Analysis", default_size=(750, 530))
 def parse():
     """Parse command line arguments to Gooey GUI."""
     desc = "Analyse solar simulator data and generate a report."
@@ -71,7 +72,61 @@ def parse():
         choices=["yes", "no"],
         default="yes",
     )
+    req.add_argument(
+        "--debug",
+        metavar="DEBUG",
+        help="Export debug info to a file",
+        widget="CheckBox",
+        action="store_true",
+    )
     return parser.parse_args()
+
+
+def create_logger(log_dir, debug=False):
+    """Create a logger.
+
+    Parameters
+    ----------
+    log_dir : str
+        Log directory.
+    debug : bool
+        Flag whether to log in debug mode, which exports logging to a file.
+    """
+    # create logger
+    logging.captureWarnings(True)
+    logger = logging.getLogger()
+    log_level = 10 if debug is True else 20
+    logger.setLevel(log_level)
+
+    # create a filter to remove messages from certain imports
+    class importFilter(logging.Filter):
+        """Filter log records from named third-party imports."""
+
+        def filter(self, record: logging.LogRecord) -> bool:
+            if record.name.startswith("matplotlib"):
+                return False
+            elif record.name.startswith("PIL"):
+                return False
+            else:
+                return True
+
+    # create console handler
+    ch = logging.StreamHandler()
+    ch.setLevel(log_level)
+    ch.addFilter(importFilter())
+    logger.addHandler(ch)
+
+    # add file handler for debugging
+    if debug is True:
+        formatter = logging.Formatter("%(asctime)s|%(name)s|%(levelname)s|%(message)s")
+
+        fh = logging.FileHandler(pathlib.Path(log_dir).joinpath("debug.txt"), mode="w")
+        fh.setLevel(log_level)
+        fh.setFormatter(formatter)
+        fh.addFilter(importFilter())
+        logger.addHandler(fh)
+
+    return logger
 
 
 def round_sig_fig(x, sf):
@@ -223,8 +278,8 @@ def plot_boxplots(df, params, kind, grouping, variable="", i=0, data_slide=None)
                 showfliers=False,
             )
         except ValueError:
-            print(hue, grouping, p, kind)
-            print(df["jsc"])
+            logger.info(hue, grouping, p, kind)
+            logger.info(df["jsc"])
             raise ValueError("FAIL!")
         sns.swarmplot(
             x=df[grouping],
@@ -448,7 +503,7 @@ def plot_stabilisation(df, title, short_name):
             # Close figure
             plt.close(fig)
         except IndexError:
-            print("indexerror")
+            logger.info("indexerror")
             pass
 
         i += 1
@@ -496,6 +551,9 @@ def plot_spectra(files):
 # parse args
 args = parse()
 
+# create a logger
+logger = create_logger(args.folder, args.debug)
+
 if args.fix_ymin_0 == "yes":
     fix_ymin_0 = True
 else:
@@ -522,7 +580,7 @@ if folderpath_split[-1] == "LOGS":
 os.chdir(folderpath)
 
 # Create folders for storing files generated during analysis
-print("Creating analysis folder...", end="", flush=True)
+logger.info("Creating analysis folder...")
 analysis_folder = os.path.join(folderpath, "Analysis")
 image_folder = os.path.join(analysis_folder, "Figures")
 if os.path.exists(analysis_folder):
@@ -533,7 +591,7 @@ if os.path.exists(image_folder):
     pass
 else:
     os.makedirs(image_folder)
-print("Done")
+
 
 # Get username, date, and title from folderpath for the ppt title page
 exp_date = time.strftime("%A %B %d %Y", time.localtime(start_time))
@@ -546,7 +604,7 @@ h = constants.Planck
 T = 300
 
 # Read in data from JV log file
-print("Loading log file...", end="", flush=True)
+logger.info("Loading log file...")
 data = pd.read_csv(log_filepath, delimiter="\t", header=0)
 
 # format header names so they can be read as attributes
@@ -564,10 +622,10 @@ for name in data.columns:
 data.columns = names
 
 num_cols = len(data.columns)
-print("Done")
+
 
 # Create a powerpoint presentation to add figures to.
-print("Creating powerpoint file...", end="", flush=True)
+logger.info("Creating powerpoint file...")
 prs = Presentation()
 
 # Add title page with experiment title, date, and username.
@@ -625,10 +683,10 @@ tops = {
     "2": prs.slide_height - height,
     "3": prs.slide_height - height,
 }
-print("Done")
+
 
 # Sort data
-print("Sorting and filtering data...", end="", flush=True)
+logger.info("Sorting and filtering data...")
 
 # filter out pixels that yield a non-physical quasi-FF or Jss from analysis
 filter_groups = data.groupby(["label", "pixel"])
@@ -695,17 +753,17 @@ sjsc_data = data[
     & (sorted_data.quasiff > 0.1)
 ]
 svoc_data = data[(np.absolute(sorted_data.vss) > 0) & (sorted_data.jss == 0)]
-print("Done")
 
-print("Plotting spectra...", end="", flush=True)
+
+logger.info("Plotting spectra...")
 # Get spectrum files
 spectrum_files = [f for f in os.listdir(folderpath) if f.endswith("spectrum.txt")]
 if len(spectrum_files) > 0:
     spectrum_files.sort()
     plot_spectra(spectrum_files)
-print("Done")
 
-print("Plotting boxplots and barcharts...", end="", flush=True)
+
+logger.info("Plotting boxplots and barcharts...")
 jv_params = ["jsc", "voc", "ff", "pce", "vmpp", "jmpp", "rsvfwd"]
 spo_params = ["pcess", "pcesspcejv"]
 sjsc_params = ["jss", "quasiff"]
@@ -765,16 +823,15 @@ for name, group in grouped_filtered_data:
     plot_countplots(filtered_data, ix, "value", data_slide, name)
     ix += 1
 
-print("Done")
 
 # plot steady-state data
-print("Plotting steady-state data...", end="", flush=True)
+logger.info("Plotting steady-state data...")
 plot_stabilisation(spo_data, "Steady-state power output", "spo")
 plot_stabilisation(sjsc_data, "Steady-state Jsc", "sjsc")
 plot_stabilisation(svoc_data, "Steady-state Voc", "svoc")
-print("Done")
 
-print("Plotting JV curves...", end="", flush=True)
+
+logger.info("Plotting JV curves...")
 # Group data by label and sort ready to plot graph of all pixels per substrate
 re_sort_data = filtered_data.sort_values(["label", "pixel"], ascending=[True, True])
 grouped_by_label = re_sort_data.groupby("label")
@@ -1286,9 +1343,9 @@ for name, group in all_jvs_groups:
 
     i += 1
 
-print("Done")
 
 # Save powerpoint presentation
-print("Saving powerpoint presentation...", end="", flush=True)
+logger.info("Saving powerpoint presentation...")
 prs.save(str(log_filepath).replace(".log", "_summary.pptx"))
-print("Done")
+
+logger.info("Analysis complete!")

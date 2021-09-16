@@ -2,8 +2,12 @@
 
 import argparse
 import csv
+import logging
 import os
 import pathlib
+
+
+logger = logging.getLogger(__name__)
 
 
 def generate_log(folder):
@@ -19,7 +23,7 @@ def generate_log(folder):
     log_path : pathlib.Path
         New log file path.
     """
-    print(f"Generating a log file for folder: {folder}")
+    logger.info(f"Generating a log file for folder: {folder}")
     log_path = folder.joinpath("log.log")
 
     files = [
@@ -51,7 +55,7 @@ def generate_log(folder):
         for entry in log:
             csv_writer.writerow(entry)
 
-    print(f"Generated new log file successfully: {log_path}")
+    logger.info(f"Generated new log file successfully: {log_path}")
     return log_path
 
 

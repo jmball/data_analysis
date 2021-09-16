@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import logging
 import os
 import pathlib
 import shutil
@@ -9,6 +10,9 @@ import shutil
 import numpy as np
 import scipy as sp
 import scipy.interpolate
+
+
+logger = logging.getLogger(__name__)
 
 
 def sort_python_measurement_files(folder):
@@ -122,7 +126,7 @@ def format_folder(data_folder):
     python_prog = len(tsv_files) > 0
 
     if python_prog:
-        print("This is probably a folder created with the Python measurement program.")
+        logger.info("Data probably created with the Python measurement program.")
 
         processed_files = [f for f in processed_folder.iterdir()]
 
@@ -337,7 +341,7 @@ def format_folder(data_folder):
                     )
                 ).tolist()
             except ValueError:
-                print(file, len(rel_time), len(r_diff))
+                logger.info(file, len(rel_time), len(r_diff))
 
             # get metadata
             metadata = [
@@ -393,11 +397,11 @@ def format_folder(data_folder):
                 writer = csv.writer(f, delimiter="\t")
                 writer.writerows(iv_header + write_data + metadata)
 
-        print(
+        logger.info(
             f"Formatting complete! Formatted data can be found in: {analysis_folder}."
         )
     else:
-        print("This is probably a folder created with the LabVIEW measurement program.")
+        logger.info("Data probably created with the LabVIEW measurement program.")
 
         experiment_title = str(data_folder.parts[-1])
         start_time = experiment_title.split("_")[1]
