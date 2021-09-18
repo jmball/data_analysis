@@ -37,18 +37,12 @@ warnings.filterwarnings("ignore")
 # Define a colormap for graded plots
 cmap = plt.cm.get_cmap("viridis")
 
-# hack to fix bug in gooey, which doesn't get colours right in dark mode
-if wx.SystemSettings.GetAppearance().IsDark():
-    header_bg_colour = "#262626"
-else:
-    header_bg_colour = "#ffffffff"
-
 
 @Gooey(
     dump_build_config=False,
     program_name="Data Analysis",
     default_size=(750, 530),
-    header_bg_colour=header_bg_colour,
+    header_bg_color="#7B7B7B",
 )
 def parse():
     """Parse command line arguments to Gooey GUI."""
