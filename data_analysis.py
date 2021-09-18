@@ -21,6 +21,7 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.text import MSO_ANCHOR
 from scipy import constants
+import wx
 
 from gooey import Gooey, GooeyParser
 
@@ -28,7 +29,7 @@ from check_release_version import get_latest_release_version, repo_url
 from format_data import format_folder
 from log_generator import generate_log
 
-__version__ = "1.0.2"
+__version__ = "1.1.0"
 
 # supress warnings
 warnings.filterwarnings("ignore")
@@ -36,8 +37,19 @@ warnings.filterwarnings("ignore")
 # Define a colormap for graded plots
 cmap = plt.cm.get_cmap("viridis")
 
+# hack to fix bug in gooey, which doesn't get colours right in dark mode
+if wx.SystemSettings.GetAppearance().IsDark():
+    header_bg_colour = "#262626"
+else:
+    header_bg_colour = "#ffffffff"
 
-@Gooey(dump_build_config=False, program_name="Data Analysis", default_size=(750, 530))
+
+@Gooey(
+    dump_build_config=False,
+    program_name="Data Analysis",
+    default_size=(750, 530),
+    header_bg_colour=header_bg_colour,
+)
 def parse():
     """Parse command line arguments to Gooey GUI."""
     desc = "Analyse solar simulator data and generate a report."
