@@ -5,8 +5,8 @@ import urllib.request
 import warnings
 import packaging.version
 
-
-releases_url = "https://github.com/jmball/data_analysis/releases"
+repo_url = "https://github.com/jmball/data_analysis"
+releases_url = repo_url + "/releases"
 
 
 def get_latest_release_version():

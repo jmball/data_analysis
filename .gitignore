@@ -137,3 +137,5 @@ old-builds/
 .vscode
 
 .DS_store
+
+gooey-config.json

@@ -24,7 +24,7 @@ from scipy import constants
 
 from gooey import Gooey, GooeyParser
 
-from check_release_version import get_latest_release_version, releases_url
+from check_release_version import get_latest_release_version, repo_url
 from format_data import format_folder
 from log_generator import generate_log
 
@@ -37,7 +37,7 @@ warnings.filterwarnings("ignore")
 cmap = plt.cm.get_cmap("viridis")
 
 
-@Gooey(program_name="Data Analysis", default_size=(750, 530))
+@Gooey(dump_build_config=False, program_name="Data Analysis", default_size=(750, 530))
 def parse():
     """Parse command line arguments to Gooey GUI."""
     desc = "Analyse solar simulator data and generate a report."
@@ -52,7 +52,7 @@ def parse():
     elif packaging.version.parse(latest_release_version) > packaging.version.parse(
         __version__
     ):
-        desc += f"\n\nNEW VERSION AVAILABLE! Download it from: {releases_url}"
+        desc += f"\n\nNEW VERSION AVAILABLE! Download it from: {repo_url}"
     else:
         desc += f"\n\nYou're running the latest version: {__version__}"
 
