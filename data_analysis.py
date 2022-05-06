@@ -29,7 +29,7 @@ from check_release_version import get_latest_release_version, repo_url
 from format_data import format_folder
 from log_generator import generate_log
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 # supress warnings
 warnings.filterwarnings("ignore")
