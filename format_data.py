@@ -311,11 +311,15 @@ def format_folder(data_folder):
                     vss = 0
                     jss = np.mean(meas_j[-10:])
                     pcess = 0
-                    quasiff = (
-                        pixels_dict[key]["quasipce"]
-                        * intensity
-                        / (np.absolute(pixels_dict[key]["quasivoc"]) * np.absolute(jss))
-                    )
+                    try:
+                        quasiff = (
+                            pixels_dict[key]["quasipce"]
+                            * intensity
+                            / (np.absolute(pixels_dict[key]["quasivoc"]) * np.absolute(jss))
+                        )
+                    except KeyError:
+                        # there was no mpp scan so can't estimate quasi-ff
+                        quasiff = 0
                     lvext = "jsc"
 
             # generate new path
