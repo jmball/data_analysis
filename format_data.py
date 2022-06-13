@@ -144,7 +144,12 @@ def format_folder(data_folder):
         for ix, file in enumerate(processed_files):
             experiment_title = str(file.parts[-3])
             username = str(file.parts[-4])
-            proc, position, label, pixel, rest = str(file.parts[-1]).split("_")
+            try:
+                proc, position, label, pixel, rest = str(file.parts[-1]).split("_")
+            except ValueError:
+                # the device label probably wasn't provided
+                proc, position, pixel, rest = str(file.parts[-1]).split("_")
+                label = position
             start_time, ext1, ext2 = rest.split(".")
             pixel = pixel.strip("device")
 
