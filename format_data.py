@@ -61,13 +61,20 @@ def get_scan_dir_and_rsfwd(voc, ascending, r_diff, ncompliance):
     ncompliance : list
         Data points not in compliance.
     """
-    if type(voc) is not str:
+    if not (isinstance(voc, str)):
         if ascending and voc < 0 or (ascending or voc >= 0) and not ascending:
             scan_dir = "fwd"
-            rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][1]
+            rsfwd_index = 1
         else:
             scan_dir = "rev"
-            rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][-2]
+            rsfwd_index = -2
+        try:
+            rsfwd = r_diff[ncompliance][r_diff[ncompliance] >= 0][rsfwd_index]
+        except IndexError:
+            # no +ve resistance values found that aren't in compliance
+            # probably a dead device that's exhibiting noise
+            scan_dir = "NA"
+            rsfwd = "nan"
     else:
         scan_dir = "NA"
         rsfwd = "nan"
@@ -142,6 +149,7 @@ def format_folder(data_folder):
 
         pixels_dict = {}
         for ix, file in enumerate(processed_files):
+            print(file)
             experiment_title = str(file.parts[-3])
             username = str(file.parts[-4])
             try:
@@ -258,9 +266,9 @@ def format_folder(data_folder):
                 vmp = f_dpdv(0)
                 jmp = f_j(vmp)
                 if (
-                    (type(jsc) is not str)
-                    and (type(vmp) is not str)
-                    and (type(jmp) is not str)
+                    (not (isinstance(jsc, str)))
+                    and (not (isinstance(vmp, str)))
+                    and (not (isinstance(jmp, str)))
                 ):
                     ff = vmp * jmp / (jsc * voc)
                     mp = vmp * jmp
@@ -271,7 +279,7 @@ def format_folder(data_folder):
                     pce = "nan"
                 rsvoc = f_r_diff(voc)
 
-                if liv and (type(pce) is not str):
+                if liv and (not (isinstance(pce, str))):
                     if ("liv" in ext1) and ("ivpce" not in pixels_dict[key]):
                         # reset stored jv pce if first liv, for PCE_SS/PCE_JV calc
                         pixels_dict[key]["ivpce"] = pce
@@ -320,7 +328,10 @@ def format_folder(data_folder):
                         quasiff = (
                             pixels_dict[key]["quasipce"]
                             * intensity
-                            / (np.absolute(pixels_dict[key]["quasivoc"]) * np.absolute(jss))
+                            / (
+                                np.absolute(pixels_dict[key]["quasivoc"])
+                                * np.absolute(jss)
+                            )
                         )
                     except KeyError:
                         # there was no mpp scan so can't estimate quasi-ff
