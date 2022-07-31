@@ -6,7 +6,9 @@ import logging
 import os
 import pathlib
 import shutil
+import time
 
+import pandas as pd
 import numpy as np
 import scipy as sp
 import scipy.interpolate
@@ -82,6 +84,84 @@ def get_scan_dir_and_rsfwd(voc, ascending, r_diff, ncompliance):
     return scan_dir, rsfwd
 
 
+def generate_processed_folder(data_folder, tsv_files, processed_folder):
+    """Generate folder containing processed data.
+
+    This is equivalent to the processed data from the python plotter.
+
+    Parameters
+    ----------
+    data_folder : pathlib.Path
+        Folder containing measurement data.
+    tsv_files : list
+        List of measurement data file paths.
+    processed_folder : pathlib.Path
+        Folder that will containing processed measurement data.
+    """
+    processed_folder.mkdir()
+
+    processed_header = [
+        [
+            "voltage (v)",
+            "current (A)",
+            "time (s)",
+            "status",
+            "current_density (mA/cm^2)",
+            "power_density (mW/cm^2)",
+        ]
+    ]
+
+    # read in the pixel setup file
+    experiment_timestamp = str(data_folder)[-10:]
+    pixel_setup = pd.read_csv(
+        data_folder.joinpath(f"IV_pixel_setup_{experiment_timestamp}.csv"),
+        index_col="user_label",
+    )
+
+    # set a single file modification time for all files so sorting by modification time
+    # later doesn't lead to falsely inferring the files were measured in modification
+    # order
+    mtime = time.time()
+
+    for file in tsv_files:
+        # look up area from pixel setup based on analysing the file name
+        file_str = str(file.relative_to(data_folder))
+        _slot, _label, _device, _timestamp_ext = file_str.split("_")
+        _timestamp, _ext, _tsv = _timestamp_ext.split(".")
+        _pixel = int(_device.replace("device", ""))
+        _area_type = "dark_area" if "div" in _ext else "area"
+        _area = pixel_setup[pixel_setup["mux_index"] == _pixel].loc[_label][_area_type]
+
+        # load and process raw data
+        _data = np.genfromtxt(file, delimiter="\t", skip_header=1)
+        _voltage = _data[:, 0]
+        _current = _data[:, 1]
+        _time = _data[:, 2]
+        _status = _data[:, 3]
+        _current_density = _current * 1000 / _area
+        _power_density = _current * 1000 * _voltage / _area
+
+        processed_data = np.column_stack(
+            (
+                _voltage,
+                _current,
+                _time,
+                _status,
+                _current_density,
+                _power_density,
+            )
+        ).tolist()
+
+        # write processed data file
+        processed_file = processed_folder.joinpath(f"processed_{file_str}")
+        with open(processed_file, "w", newline="\n", encoding="utf-8") as f:
+            writer = csv.writer(f, delimiter="\t")
+            writer.writerows(processed_header + processed_data)
+
+        # set universal modification and access times
+        os.utime(processed_file, (mtime, mtime))
+
+
 def format_folder(data_folder):
     """Change all the data in a folder to a common format.
 
@@ -135,9 +215,13 @@ def format_folder(data_folder):
     if python_prog:
         logger.info("Data probably created with the Python measurement program.")
 
+        # generate processed folder and files if it doesn't already exist
+        if processed_folder.exists() is False:
+            generate_processed_folder(data_folder, tsv_files, processed_folder)
+
         processed_files = [f for f in processed_folder.iterdir()]
 
-        # sort files by measurement order to allows calculation of derived parameters
+        # sort files by measurement order to allow calculation of derived parameters
         # from other files, e.g. quasi-ff
         if len(set([os.path.getmtime(f) for f in processed_files])) == 1:
             # date modified info hasn't been preserved so data has probably been copied
@@ -148,8 +232,10 @@ def format_folder(data_folder):
             processed_files.sort(key=os.path.getmtime)
 
         pixels_dict = {}
+        logger.info("Formatting Python data files...")
         for ix, file in enumerate(processed_files):
-            print(file)
+            logger.info(file)
+
             experiment_title = str(file.parts[-3])
             username = str(file.parts[-4])
             try:
@@ -185,13 +271,13 @@ def format_folder(data_folder):
             else:
                 intensity = 1
                 meas_pce = meas_p / intensity
-            time = data[:, 2]
+            time_data = data[:, 2]
             status = data[:, 3]
 
             # measurements not in compliance
             ncompliance = [not (int(bin(int(s))[-4])) for s in status]
 
-            timestamp = int(start_time) + time[0]
+            timestamp = int(start_time) + time_data[0]
 
             area = meas_current[0] / (meas_j[0] / 1000)
 
@@ -334,7 +420,10 @@ def format_folder(data_folder):
                             )
                         )
                     except KeyError:
-                        # there was no mpp scan so can't estimate quasi-ff
+                        logger.warning(
+                            "There was no corresponding mpp scan so can't estimate "
+                            + "quasi-ff."
+                        )
                         quasiff = 0
                     lvext = "jsc"
 
@@ -355,7 +444,7 @@ def format_folder(data_folder):
                         meas_j,
                         meas_p,
                         meas_pce,
-                        time,
+                        time_data,
                         status,
                         r_diff,
                     )
@@ -413,7 +502,7 @@ def format_folder(data_folder):
             ]
 
             # write new data file
-            with open(new_file, "w", newline="\n") as f:
+            with open(new_file, "w", newline="\n", encoding="utf-8") as f:
                 writer = csv.writer(f, delimiter="\t")
                 writer.writerows(iv_header + write_data + metadata)
 
