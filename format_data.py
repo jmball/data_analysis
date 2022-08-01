@@ -7,6 +7,7 @@ import os
 import pathlib
 import shutil
 import time
+import uuid
 
 import pandas as pd
 import numpy as np
@@ -170,6 +171,41 @@ def generate_processed_folder(
         os.utime(processed_file, (mtime, mtime))
 
 
+def load_run_args(path):
+    """Load run arguments from a yaml file.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        Path to the run_args yaml file.
+
+    Returns
+    -------
+    run_args : dict
+        Run arguments dictionary.
+    """
+
+    class CustomLoader(yaml.SafeLoader):
+        """Subclass safe loader to avoid modifying it inplace."""
+
+        pass
+
+    def construct_uuid(loader, node):
+        mapping = loader.construct_mapping(node)
+        return uuid.UUID(int=mapping["int"])
+
+    CustomLoader.add_constructor(
+        "tag:yaml.org,2002:python/object:uuid.UUID", construct_uuid
+    )
+
+    with open(path, encoding="utf-8") as f:
+        run_args = yaml.load(f, Loader=CustomLoader)
+
+    print(run_args["uuid"])
+
+    return run_args
+
+
 def format_folder(data_folder):
     """Change all the data in a folder to a common format.
 
@@ -246,8 +282,7 @@ def format_folder(data_folder):
 
         # get run arguments
         run_args_file = data_folder.joinpath(f"run_args_{experiment_timestamp}.yaml")
-        with open(run_args_file, encoding="utf-8") as f:
-            run_args = yaml.load(f, Loader=yaml.UnsafeLoader)
+        run_args = load_run_args(run_args_file)
 
         pixels_dict = {}
         logger.info("Formatting Python data files...")
