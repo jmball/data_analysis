@@ -12,9 +12,14 @@ import pandas as pd
 import numpy as np
 import scipy as sp
 import scipy.interpolate
+import yaml
 
 
 logger = logging.getLogger(__name__)
+
+# number of points to average over at the end of a stabilisation scan to record as the
+# stabilised value
+POINTS_TO_AVERAGE = 10
 
 
 def sort_python_measurement_files(folder):
@@ -84,7 +89,9 @@ def get_scan_dir_and_rsfwd(voc, ascending, r_diff, ncompliance):
     return scan_dir, rsfwd
 
 
-def generate_processed_folder(data_folder, tsv_files, processed_folder):
+def generate_processed_folder(
+    data_folder, tsv_files, processed_folder, experiment_timestamp
+):
     """Generate folder containing processed data.
 
     This is equivalent to the processed data from the python plotter.
@@ -97,6 +104,8 @@ def generate_processed_folder(data_folder, tsv_files, processed_folder):
         List of measurement data file paths.
     processed_folder : pathlib.Path
         Folder that will containing processed measurement data.
+    experiment_timestamp : int
+        Experiment timestamp in s since the epoch.
     """
     processed_folder.mkdir()
 
@@ -112,7 +121,6 @@ def generate_processed_folder(data_folder, tsv_files, processed_folder):
     ]
 
     # read in the pixel setup file
-    experiment_timestamp = str(data_folder)[-10:]
     pixel_setup = pd.read_csv(
         data_folder.joinpath(f"IV_pixel_setup_{experiment_timestamp}.csv"),
         index_col="user_label",
@@ -215,9 +223,14 @@ def format_folder(data_folder):
     if python_prog:
         logger.info("Data probably created with the Python measurement program.")
 
+        # get experiment timestamp
+        experiment_timestamp = int(str(data_folder)[-10:])
+
         # generate processed folder and files if it doesn't already exist
         if processed_folder.exists() is False:
-            generate_processed_folder(data_folder, tsv_files, processed_folder)
+            generate_processed_folder(
+                data_folder, tsv_files, processed_folder, experiment_timestamp
+            )
 
         processed_files = [f for f in processed_folder.iterdir()]
 
@@ -231,11 +244,17 @@ def format_folder(data_folder):
             # date modified info is available so use it to infer measurement order
             processed_files.sort(key=os.path.getmtime)
 
+        # get run arguments
+        run_args_file = data_folder.joinpath(f"run_args_{experiment_timestamp}.yaml")
+        with open(run_args_file, encoding="utf-8") as f:
+            run_args = yaml.load(f, Loader=yaml.UnsafeLoader)
+
         pixels_dict = {}
         logger.info("Formatting Python data files...")
         for ix, file in enumerate(processed_files):
             logger.info(file)
 
+            # infer experiment and device details from paths
             experiment_title = str(file.parts[-3])
             username = str(file.parts[-4])
             try:
@@ -259,23 +278,58 @@ def format_folder(data_folder):
                 # if there's only one row in a data file numpy will import it as a 1D
                 # array so convert it to 2D
                 data = np.array([data])
-            rel_time = data[:, 2] - data[0, 2]
-            set_voltage = [np.NaN] * len(data[:, 0])
-            meas_voltage = data[:, 0]
-            meas_current = data[:, 1]
-            meas_j = data[:, 4]
-            meas_p = data[:, 5]
+
+            # apply special formatting to suns_voc voc file if applicable
+            if ("vt" in ext1) and (
+                (run_args["suns_voc"] > 1) or (run_args["suns_voc"] < -1)
+            ):
+                total_rows = len(data[:, 0])
+                voc_rows = int(total_rows / 2)
+
+                if run_args["suns_voc"] > 1:
+                    rel_time = data[:voc_rows, 2] - data[0, 2]
+                    set_voltage = [np.NaN] * len(data[:voc_rows, 0])
+                    meas_voltage = data[:voc_rows, 0]
+                    meas_current = data[:voc_rows, 1]
+                    time_data = data[:voc_rows, 2]
+                    status = data[:voc_rows, 3]
+                    meas_j = data[:voc_rows, 4]
+                    meas_p = data[:voc_rows, 5]
+                else:
+                    rel_time = data[voc_rows:, 2] - data[0, 2]
+                    set_voltage = [np.NaN] * len(data[voc_rows:, 0])
+                    meas_voltage = data[voc_rows:, 0]
+                    meas_current = data[voc_rows:, 1]
+                    time_data = data[voc_rows:, 2]
+                    status = data[voc_rows:, 3]
+                    meas_j = data[voc_rows:, 4]
+                    meas_p = data[voc_rows:, 5]
+            else:
+                rel_time = data[:, 2] - data[0, 2]
+                set_voltage = [np.NaN] * len(data[:, 0])
+                meas_voltage = data[:, 0]
+                meas_current = data[:, 1]
+                time_data = data[:, 2]
+                status = data[:, 3]
+                meas_j = data[:, 4]
+                meas_p = data[:, 5]
+
             if div := "div" in ext1:
                 intensity = 0
                 meas_pce = np.zeros(len(meas_p))
             else:
                 intensity = 1
                 meas_pce = meas_p / intensity
-            time_data = data[:, 2]
-            status = data[:, 3]
 
             # measurements not in compliance
-            ncompliance = [not (int(bin(int(s))[-4])) for s in status]
+            try:
+                ncompliance = [not (int(bin(int(s))[-4])) for s in status]
+            except IndexError:
+                ncompliance = [True for s in status]
+                logger.warning(
+                    "WARNING: Invalid status byte format so can't determine "
+                    + "measurements in complinace."
+                )
 
             timestamp = int(start_time) + time_data[0]
 
@@ -390,16 +444,22 @@ def format_folder(data_folder):
                 scan_dir = "-"
 
                 if vt:
-                    vss = np.mean(meas_voltage[-10:])
+                    # override r_diff length if suns_voc performed
+                    if run_args["suns_voc"] > 1:
+                        r_diff = np.zeros(len(data[:voc_rows, 0]))
+                    elif run_args["suns_voc"] < -1:
+                        r_diff = np.zeros(len(data[voc_rows:, 0]))
+
+                    vss = np.mean(meas_voltage[-POINTS_TO_AVERAGE:])
                     jss = 0
                     pcess = 0
                     quasivoc = vss
                     lvext = "voc"
                     pixels_dict[key]["quasivoc"] = quasivoc
                 elif mpp:
-                    vss = np.mean(meas_voltage[-10:])
-                    jss = np.mean(meas_j[-10:])
-                    pcess = np.absolute(np.mean(meas_pce[-10:]))
+                    vss = np.mean(meas_voltage[-POINTS_TO_AVERAGE:])
+                    jss = np.mean(meas_j[-POINTS_TO_AVERAGE:])
+                    pcess = np.absolute(np.mean(meas_pce[-POINTS_TO_AVERAGE:]))
                     quasipce = pcess
                     lvext = "mpp"
                     pixels_dict[key]["quasipce"] = quasipce
@@ -408,7 +468,7 @@ def format_folder(data_folder):
                     )
                 elif it:
                     vss = 0
-                    jss = np.mean(meas_j[-10:])
+                    jss = np.mean(meas_j[-POINTS_TO_AVERAGE:])
                     pcess = 0
                     try:
                         quasiff = (
@@ -421,8 +481,8 @@ def format_folder(data_folder):
                         )
                     except KeyError:
                         logger.warning(
-                            "There was no corresponding mpp scan so can't estimate "
-                            + "quasi-ff."
+                            "WARNING: There was no corresponding mpp scan so can't "
+                            + "estimate quasi-ff."
                         )
                         quasiff = 0
                     lvext = "jsc"

@@ -28,8 +28,8 @@ from gooey import Gooey, GooeyParser
 from check_release_version import get_latest_release_version, repo_url
 from format_data import format_folder
 from log_generator import generate_log
+from version import __version__
 
-__version__ = "1.2.0"
 
 # supress warnings
 warnings.filterwarnings("ignore")
@@ -997,7 +997,7 @@ best_pixels = sort_best_pixels.drop_duplicates(["variable", "value"])
 # get parameters for defining position of figures in subplot, attempting to
 # make it as square as possible
 no_of_subplots = len(best_pixels["path"])
-subplot_rows = np.ceil(no_of_subplots ** 0.5)
+subplot_rows = np.ceil(no_of_subplots**0.5)
 subplot_cols = np.ceil(no_of_subplots / subplot_rows)
 
 # create lists of varibales and values for labelling figures
