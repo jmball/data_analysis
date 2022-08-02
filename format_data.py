@@ -315,39 +315,24 @@ def format_folder(data_folder):
                 data = np.array([data])
 
             # apply special formatting to suns_voc voc file if applicable
-            if ("vt" in ext1) and (
-                (run_args["suns_voc"] > 1) or (run_args["suns_voc"] < -1)
-            ):
-                total_rows = len(data[:, 0])
-                voc_rows = int(total_rows / 2)
-
-                if run_args["suns_voc"] > 1:
-                    rel_time = data[:voc_rows, 2] - data[0, 2]
-                    set_voltage = [np.NaN] * len(data[:voc_rows, 0])
-                    meas_voltage = data[:voc_rows, 0]
-                    meas_current = data[:voc_rows, 1]
-                    time_data = data[:voc_rows, 2]
-                    status = data[:voc_rows, 3]
-                    meas_j = data[:voc_rows, 4]
-                    meas_p = data[:voc_rows, 5]
-                else:
-                    rel_time = data[voc_rows:, 2] - data[0, 2]
-                    set_voltage = [np.NaN] * len(data[voc_rows:, 0])
-                    meas_voltage = data[voc_rows:, 0]
-                    meas_current = data[voc_rows:, 1]
-                    time_data = data[voc_rows:, 2]
-                    status = data[voc_rows:, 3]
-                    meas_j = data[voc_rows:, 4]
-                    meas_p = data[voc_rows:, 5]
+            _rel_time = data[:, 2] - data[0, 2]
+            if ("vt" in ext1) and (run_args["suns_voc"] >= 3):
+                # take first portion of voc dwell as ss-voc measurement
+                mask = np.where(_rel_time <= run_args["i_dwell"])
+            elif ("vt" in ext1) and (run_args["suns_voc"] <= -3):
+                # take last portion of voc dwell as ss-voc measurement
+                mask = np.where(_rel_time >= _rel_time[-1] - run_args["i_dwell"])
             else:
-                rel_time = data[:, 2] - data[0, 2]
-                set_voltage = [np.NaN] * len(data[:, 0])
-                meas_voltage = data[:, 0]
-                meas_current = data[:, 1]
-                time_data = data[:, 2]
-                status = data[:, 3]
-                meas_j = data[:, 4]
-                meas_p = data[:, 5]
+                mask = [True] * len(data[:, 0])
+
+            rel_time = _rel_time[mask]
+            set_voltage = np.full(len(data[:, 0]), np.NaN)[mask]
+            meas_voltage = data[:, 0][mask]
+            meas_current = data[:, 1][mask]
+            time_data = data[:, 2][mask]
+            status = data[:, 3][mask]
+            meas_j = data[:, 4][mask]
+            meas_p = data[:, 5][mask]
 
             if div := "div" in ext1:
                 intensity = 0
@@ -479,11 +464,8 @@ def format_folder(data_folder):
                 scan_dir = "-"
 
                 if vt:
-                    # override r_diff length if suns_voc performed
-                    if run_args["suns_voc"] > 1:
-                        r_diff = np.zeros(len(data[:voc_rows, 0]))
-                    elif run_args["suns_voc"] < -1:
-                        r_diff = np.zeros(len(data[voc_rows:, 0]))
+                    # override r_diff length if suns_voc performed using mask
+                    r_diff = np.zeros(len(data[:, 0][mask]))
 
                     vss = np.mean(meas_voltage[-POINTS_TO_AVERAGE:])
                     jss = 0
