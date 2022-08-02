@@ -201,8 +201,6 @@ def load_run_args(path):
     with open(path, encoding="utf-8") as f:
         run_args = yaml.load(f, Loader=CustomLoader)
 
-    print(run_args["uuid"])
-
     return run_args
 
 
