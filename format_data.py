@@ -313,14 +313,18 @@ def format_folder(data_folder):
                 data = np.array([data])
 
             # apply special formatting to suns_voc voc file if applicable
-            _rel_time = data[:, 2] - data[0, 2]
-            if ("vt" in ext1) and (run_args["suns_voc"] >= 3):
-                # take first portion of voc dwell as ss-voc measurement
-                mask = np.where(_rel_time <= run_args["i_dwell"])
-            elif ("vt" in ext1) and (run_args["suns_voc"] <= -3):
-                # take last portion of voc dwell as ss-voc measurement
-                mask = np.where(_rel_time >= _rel_time[-1] - run_args["i_dwell"])
-            else:
+            try:
+                _rel_time = data[:, 2] - data[0, 2]
+                if ("vt" in ext1) and (run_args["suns_voc"] >= 3):
+                    # take first portion of voc dwell as ss-voc measurement
+                    mask = np.where(_rel_time <= run_args["i_dwell"])
+                elif ("vt" in ext1) and (run_args["suns_voc"] <= -3):
+                    # take last portion of voc dwell as ss-voc measurement
+                    mask = np.where(_rel_time >= _rel_time[-1] - run_args["i_dwell"])
+                else:
+                    mask = [True] * len(data[:, 0])
+            except KeyError:
+                # suns_voc key probably isn't available for this version of run_args
                 mask = [True] * len(data[:, 0])
 
             rel_time = _rel_time[mask]
