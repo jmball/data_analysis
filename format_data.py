@@ -133,13 +133,17 @@ def generate_processed_folder(
     mtime = time.time()
 
     for file in tsv_files:
+        logger.info(file)
         # look up area from pixel setup based on analysing the file name
         file_str = str(file.relative_to(data_folder))
         _slot, _label, _device, _timestamp_ext = file_str.split("_")
         _timestamp, _ext, _tsv = _timestamp_ext.split(".")
         _pixel = int(_device.replace("device", ""))
         _area_type = "dark_area" if "div" in _ext else "area"
-        _area = pixel_setup[pixel_setup["mux_index"] == _pixel].loc[_label][_area_type]
+        _pixel_setup = pixel_setup[pixel_setup["mux_index"] == _pixel]
+        _area = _pixel_setup[_pixel_setup["system_label"] == _slot].loc[_label][
+            _area_type
+        ]
 
         # load and process raw data
         _data = np.genfromtxt(file, delimiter="\t", skip_header=1)
@@ -262,9 +266,11 @@ def format_folder(data_folder):
 
         # generate processed folder and files if it doesn't already exist
         if processed_folder.exists() is False:
+            logger.info("Generating Processed folder...")
             generate_processed_folder(
                 data_folder, tsv_files, processed_folder, experiment_timestamp
             )
+            logger.info("Processed folder generated!")
 
         processed_files = [f for f in processed_folder.iterdir()]
 
