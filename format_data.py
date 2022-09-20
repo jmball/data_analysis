@@ -90,9 +90,7 @@ def get_scan_dir_and_rsfwd(voc, ascending, r_diff, ncompliance):
     return scan_dir, rsfwd
 
 
-def generate_processed_folder(
-    data_folder, tsv_files, processed_folder, experiment_timestamp
-):
+def generate_processed_folder(data_folder, tsv_files, processed_folder):
     """Generate folder containing processed data.
 
     This is equivalent to the processed data from the python plotter.
@@ -121,11 +119,16 @@ def generate_processed_folder(
         ]
     ]
 
-    # read in the pixel setup file
-    pixel_setup = pd.read_csv(
-        data_folder.joinpath(f"IV_pixel_setup_{experiment_timestamp}.csv"),
-        index_col="user_label",
-    )
+    # get dictionary of pixel setup files, with one item per file
+    setup_files = list(data_folder.glob("**/IV_pixel_setup_*.csv"))
+    setup_dict = {}
+    for file in setup_files:
+        experiment_timestamp = str(file)[-14:-4]
+        pixel_setup = pd.read_csv(
+            data_folder.joinpath(f"IV_pixel_setup_{experiment_timestamp}.csv"),
+            index_col="user_label",
+        )
+        setup_dict[experiment_timestamp] = pixel_setup
 
     # set a single file modification time for all files so sorting by modification time
     # later doesn't lead to falsely inferring the files were measured in modification
@@ -140,7 +143,9 @@ def generate_processed_folder(
         _timestamp, _ext, _tsv = _timestamp_ext.split(".")
         _pixel = int(_device.replace("device", ""))
         _area_type = "dark_area" if "div" in _ext else "area"
-        _pixel_setup = pixel_setup[pixel_setup["mux_index"] == _pixel]
+        _pixel_setup = setup_dict[_timestamp][
+            setup_dict[_timestamp]["mux_index"] == _pixel
+        ]
         _area = _pixel_setup[_pixel_setup["system_label"] == _slot].loc[_label][
             _area_type
         ]
@@ -224,7 +229,7 @@ def format_folder(data_folder):
     formatted_folder : pahtlib.Path
         Folder containing formatted data. This will be a new folder path if the data in
         the initial folder required formatting.
-    start_time : int
+    experiment_timestamp : int
         Unix time stamp at experiment start time.
     username : str
         User name.
@@ -261,15 +266,10 @@ def format_folder(data_folder):
     if python_prog:
         logger.info("Data probably created with the Python measurement program.")
 
-        # get experiment timestamp
-        experiment_timestamp = int(str(data_folder)[-10:])
-
         # generate processed folder and files if it doesn't already exist
         if processed_folder.exists() is False:
             logger.info("Generating Processed folder...")
-            generate_processed_folder(
-                data_folder, tsv_files, processed_folder, experiment_timestamp
-            )
+            generate_processed_folder(data_folder, tsv_files, processed_folder)
             logger.info("Processed folder generated!")
 
         processed_files = [f for f in processed_folder.iterdir()]
@@ -284,25 +284,34 @@ def format_folder(data_folder):
             # date modified info is available so use it to infer measurement order
             processed_files.sort(key=os.path.getmtime)
 
-        # get run arguments
-        run_args_file = data_folder.joinpath(f"run_args_{experiment_timestamp}.yaml")
-        run_args = load_run_args(run_args_file)
+        # get run arguments dictionary
+        # run_args_file = data_folder.joinpath(f"run_args_{experiment_timestamp}.yaml")
+        # run_args = load_run_args(run_args_file)
+        run_args_files = list(data_folder.glob("**/run_args_*.yaml"))
+        run_args_dict = {}
+        for file in run_args_files:
+            experiment_timestamp = str(file)[-15:-5]
+            run_args = load_run_args(
+                data_folder.joinpath(f"run_args_{experiment_timestamp}.yaml")
+            )
+            run_args_dict[experiment_timestamp] = run_args
+
+        # infer experiment and device details from paths
+        experiment_title = str(data_folder.parts[-1])
+        username = str(data_folder.parts[-2])
 
         pixels_dict = {}
         logger.info("Formatting Python data files...")
         for ix, file in enumerate(processed_files):
             logger.info(file)
 
-            # infer experiment and device details from paths
-            experiment_title = str(file.parts[-3])
-            username = str(file.parts[-4])
             try:
-                proc, position, label, pixel, rest = str(file.parts[-1]).split("_")
+                _, position, label, pixel, rest = str(file.parts[-1]).split("_")
             except ValueError:
                 # the device label probably wasn't provided
-                proc, position, pixel, rest = str(file.parts[-1]).split("_")
+                _, position, pixel, rest = str(file.parts[-1]).split("_")
                 label = position
-            start_time, ext1, ext2 = rest.split(".")
+            experiment_timestamp, ext1, ext2 = rest.split(".")
             pixel = pixel.strip("device")
 
             key = f"{label}_{pixel}"
@@ -319,14 +328,24 @@ def format_folder(data_folder):
                 data = np.array([data])
 
             # apply special formatting to suns_voc voc file if applicable
+            _rel_time = data[:, 2] - data[0, 2]
             try:
-                _rel_time = data[:, 2] - data[0, 2]
-                if ("vt" in ext1) and (run_args["suns_voc"] >= 3):
+                if ("vt" in ext1) and (
+                    run_args_dict[experiment_timestamp]["suns_voc"] >= 3
+                ):
                     # take first portion of voc dwell as ss-voc measurement
-                    mask = np.where(_rel_time <= run_args["i_dwell"])
-                elif ("vt" in ext1) and (run_args["suns_voc"] <= -3):
+                    mask = np.where(
+                        _rel_time <= run_args_dict[experiment_timestamp]["i_dwell"]
+                    )
+                elif ("vt" in ext1) and (
+                    run_args_dict[experiment_timestamp]["suns_voc"] <= -3
+                ):
                     # take last portion of voc dwell as ss-voc measurement
-                    mask = np.where(_rel_time >= _rel_time[-1] - run_args["i_dwell"])
+                    mask = np.where(
+                        _rel_time
+                        >= _rel_time[-1]
+                        - run_args_dict[experiment_timestamp]["i_dwell"]
+                    )
                 else:
                     mask = [True] * len(data[:, 0])
             except KeyError:
@@ -359,7 +378,7 @@ def format_folder(data_folder):
                     + "measurements in complinace."
                 )
 
-            timestamp = int(start_time) + time_data[0]
+            timestamp = int(experiment_timestamp) + time_data[0]
 
             area = meas_current[0] / (meas_j[0] / 1000)
 
@@ -598,7 +617,7 @@ def format_folder(data_folder):
         logger.info("Data probably created with the LabVIEW measurement program.")
 
         experiment_title = str(data_folder.parts[-1])
-        start_time = experiment_title.split("_")[1]
+        experiment_timestamp = experiment_title.split("_")[1]
         username = str(data_folder.parts[-2])
 
         extensions = [".voc", ".liv1", ".liv2", ".mpp", ".jsc", ".div1", ".div2"]
@@ -658,7 +677,7 @@ def format_folder(data_folder):
             else:
                 shutil.copy2(file, new_file)
 
-    return analysis_folder, int(start_time), username, experiment_title
+    return analysis_folder, int(experiment_timestamp), username, experiment_title
 
 
 if __name__ == "__main__":
