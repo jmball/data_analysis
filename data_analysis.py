@@ -220,7 +220,16 @@ def title_image_slide(prs, title):
     return slide
 
 
-def plot_boxplots(df, params, kind, grouping, variable="", i=0, data_slide=None):
+def plot_boxplots(
+    df,
+    params,
+    kind,
+    grouping,
+    variable="",
+    i=0,
+    data_slide=None,
+    override_grouping_title=None,
+):
     """Create boxplots from the log file.
 
     Parameters
@@ -240,6 +249,8 @@ def plot_boxplots(df, params, kind, grouping, variable="", i=0, data_slide=None)
         plots.
     data_slide : prs object
         current slide. Useful if carrying on from previous plots.
+    override_grouping_title : str
+        instead of using `grouping` in slide title, use this string.
     """
     plot_labels_dict = {
         "jsc": {"J-V": "Jsc (mA/cm^2)"},
@@ -262,9 +273,12 @@ def plot_boxplots(df, params, kind, grouping, variable="", i=0, data_slide=None)
         # create a new slide for every 4 plots
         if (i + j) % 4 == 0:
             ss_or_jv = kind if kind == "J-V" else "Steady-state"
+            grouping_title = (
+                grouping if override_grouping_title is None else override_grouping_title
+            )
             data_slide = title_image_slide(
                 prs,
-                f"{variable} {ss_or_jv} Parameters by {grouping}, page {int((i + j) / 4)}",
+                f"{variable} {ss_or_jv} parameters by {grouping_title}, page {int((i + j) / 4)}",
             )
 
         # create boxplot
@@ -272,7 +286,16 @@ def plot_boxplots(df, params, kind, grouping, variable="", i=0, data_slide=None)
             1, 1, dpi=300, **{"figsize": (A4_width / 2, A4_height / 2)}
         )
 
-        hue = df["scandirection"] if kind == "J-V" else None
+        # get grouping of data for box and swarm plots
+        if kind == "J-V":
+            hue = (
+                df["scandirection"]
+                + np.array([", "] * len(df["area"]))
+                + df["area"].astype(str)
+            )
+        else:
+            hue = df["area"]
+
         try:
             sns.boxplot(
                 x=df[grouping],
@@ -283,10 +306,10 @@ def plot_boxplots(df, params, kind, grouping, variable="", i=0, data_slide=None)
                 ax=ax,
                 showfliers=False,
             )
-        except ValueError:
-            logger.info(hue, grouping, p, kind)
-            logger.info(df["jsc"])
-            raise ValueError("FAIL!")
+        except ValueError as e:
+            logger.error(hue, grouping, p, kind)
+            logger.error(df["jsc"])
+            raise ValueError from e
         sns.swarmplot(
             x=df[grouping],
             y=np.absolute(df[p].astype(float)),
@@ -299,8 +322,13 @@ def plot_boxplots(df, params, kind, grouping, variable="", i=0, data_slide=None)
             ax=ax,
         )
 
-        handles, labels = ax.get_legend_handles_labels()
-        ax.legend(handles[:2], labels[:2], fontsize="small")
+        # only show legend markers for box plots, not swarm plot
+        legend_handles, legend_labels = ax.get_legend_handles_labels()
+        ax.legend(
+            legend_handles[: int(len(legend_handles) / 2)],
+            legend_labels[: int(len(legend_labels) / 2)],
+            fontsize="small",
+        )
         ax.set_xticklabels(
             ax.get_xticklabels(), fontsize="small", rotation=45, ha="right"
         )
@@ -310,7 +338,7 @@ def plot_boxplots(df, params, kind, grouping, variable="", i=0, data_slide=None)
                 ax.set_ylim(0)
         elif p in ["ff", "quasiff"]:
             if fix_ymin_0:
-                ax.set_ylim((0, 1))
+                ax.set_ylim(0, 1)
 
         ax.set_ylabel(plot_labels_dict[p][kind], fontsize="small")
 
@@ -321,12 +349,13 @@ def plot_boxplots(df, params, kind, grouping, variable="", i=0, data_slide=None)
         image_svg = os.path.join(image_folder, f"boxplot_{p}.svg")
         fig.savefig(image_png)
         fig.savefig(image_svg)
-        data_slide.shapes.add_picture(
-            image_png,
-            left=lefts[str((i + j) % 4)],
-            top=tops[str((i + j) % 4)],
-            height=height,
-        )
+        if data_slide is not None:
+            data_slide.shapes.add_picture(
+                image_png,
+                left=lefts[str((i + j) % 4)],
+                top=tops[str((i + j) % 4)],
+                height=height,
+            )
         j += 1
 
     return i + j, data_slide
@@ -361,8 +390,12 @@ def plot_countplots(df, ix, grouping, data_slide, variable=""):
         edgecolor="black",
         ax=ax,
     )
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles[:2], labels[:2], fontsize="small")
+    legend_handles, legend_labels = ax.get_legend_handles_labels()
+    ax.legend(
+        legend_handles[:],
+        legend_labels[:],
+        fontsize="small",
+    )
     ax.set_xticklabels(ax.get_xticklabels(), fontsize="small", rotation=45, ha="right")
     ax.set_xlabel("")
     ax.set_ylabel("Number of working pixels", fontsize="small")
@@ -964,10 +997,10 @@ for name, group in grouped_by_label:
     # Adjust plot width to add legend outside plot area
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
-    handles, labs = ax.get_legend_handles_labels()
+    legend_handles, legend_labels = ax.get_legend_handles_labels()
     lgd = ax.legend(
-        handles,
-        labs,
+        legend_handles,
+        legend_labels,
         loc="upper left",
         bbox_to_anchor=(1, 1),
         title="pixel #",
@@ -997,7 +1030,7 @@ best_pixels = sort_best_pixels.drop_duplicates(["variable", "value"])
 # get parameters for defining position of figures in subplot, attempting to
 # make it as square as possible
 no_of_subplots = len(best_pixels["path"])
-subplot_rows = np.ceil(no_of_subplots**0.5)
+subplot_rows = np.ceil(no_of_subplots ** 0.5)
 subplot_cols = np.ceil(no_of_subplots / subplot_rows)
 
 # create lists of varibales and values for labelling figures
@@ -1325,10 +1358,10 @@ for name, group in all_jvs_groups:
     # Adjust plot width to add legend outside plot area
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
-    handles, labs = ax.get_legend_handles_labels()
+    legend_handles, legend_labels = ax.get_legend_handles_labels()
     lgd = ax.legend(
-        handles,
-        labs,
+        legend_handles,
+        legend_labels,
         loc="upper left",
         title="scannumber #",
         bbox_to_anchor=(1, 1),

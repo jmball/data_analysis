@@ -380,7 +380,10 @@ def format_folder(data_folder):
 
             timestamp = int(experiment_timestamp) + time_data[0]
 
-            area = meas_current[0] / (meas_j[0] / 1000)
+            # calculating the area as I / J can lead to occasional floating point
+            # rounding area, which causes errors when grouping by area so use string
+            # conversion instead
+            area = f"{meas_current[0] / (meas_j[0] / 1000):.4f}"
 
             liv = "liv" in ext1
             if div or liv:
