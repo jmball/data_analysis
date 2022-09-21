@@ -14,18 +14,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import packaging.version
 import pandas as pd
-import scipy as sp
 import seaborn as sns
-from matplotlib import axes
+import scipy.constants
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.text import MSO_ANCHOR
-from scipy import constants
-import wx
 
 from gooey import Gooey, GooeyParser
 
-from check_release_version import get_latest_release_version, repo_url
+from check_release_version import get_latest_release_version, REPO_URL
 from format_data import format_folder
 from log_generator import generate_log
 from version import __version__
@@ -58,7 +55,7 @@ def parse():
     elif packaging.version.parse(latest_release_version) > packaging.version.parse(
         __version__
     ):
-        desc += f"\n\nNEW VERSION AVAILABLE! Download it from: {repo_url}"
+        desc += f"\n\nNEW VERSION AVAILABLE! Download it from: {REPO_URL}"
     else:
         desc += f"\n\nYou're running the latest version: {__version__}"
 
@@ -88,7 +85,7 @@ def parse():
     return parser.parse_args()
 
 
-def create_logger(log_dir, debug=False):
+def create_logger(log_dir: str, debug: bool = False):
     """Create a logger.
 
     Parameters
@@ -100,9 +97,9 @@ def create_logger(log_dir, debug=False):
     """
     # create logger
     logging.captureWarnings(True)
-    logger = logging.getLogger()
+    _logger = logging.getLogger()
     log_level = 10 if debug is True else 20
-    logger.setLevel(log_level)
+    _logger.setLevel(log_level)
 
     # create a filter to remove messages from certain imports
     class importFilter(logging.Filter):
@@ -120,7 +117,7 @@ def create_logger(log_dir, debug=False):
     ch = logging.StreamHandler()
     ch.setLevel(log_level)
     ch.addFilter(importFilter())
-    logger.addHandler(ch)
+    _logger.addHandler(ch)
 
     # add file handler for debugging
     if debug is True:
@@ -130,34 +127,32 @@ def create_logger(log_dir, debug=False):
         fh.setLevel(log_level)
         fh.setFormatter(formatter)
         fh.addFilter(importFilter())
-        logger.addHandler(fh)
+        _logger.addHandler(fh)
 
-    return logger
+    return _logger
 
 
-def round_sig_fig(x, sf):
+def round_sig_fig(number: float, sig_fig: int) -> float:
     """
-    Rounds a number to the specified number of significant figures.
+    Round a number to the specified number of significant figures.
 
     Parameters
     ----------
-    x : float
+    number : float
         number to round
-    sf : float
+    sig_fig : int
         number of significant figures
 
     Returns
     -------
-    y : float
+    rounded_number : float
         rounded number
     """
-
-    format_str = "%." + str(sf) + "e"
-    x_dig, x_ord = map(float, (format_str % x).split("e"))
-    return round(x, int(-x_ord) + 1)
+    _, x_ord = map(float, f"{number:.{sig_fig}e}".split("e"))
+    return round(number, int(-x_ord) + 1)
 
 
-def recursive_path_split(filepath):
+def recursive_path_split(filepath) -> tuple:
     """Recursively split filepath into sub-parts delimited by OS file seperator.
 
     Parameters
@@ -171,12 +166,10 @@ def recursive_path_split(filepath):
         sub-parts of filepath
     """
     head, tail = os.path.split(filepath)
-    if tail == "":
-        return (head,)
-    return recursive_path_split(head) + (tail,)
+    return (head,) if tail == "" else recursive_path_split(head) + (tail,)
 
 
-def title_image_slide(prs, title):
+def title_image_slide(prs, title: str):
     """
     Creates a new slide in the presentation (prs) with a formatted title.
 
@@ -192,7 +185,6 @@ def title_image_slide(prs, title):
     slide : slide object
         pptx slide object
     """
-
     # Add a title slide
     title_slide_layout = prs.slide_layouts[5]
     slide = prs.slides.add_slide(title_slide_layout)
@@ -223,12 +215,12 @@ def title_image_slide(prs, title):
 def plot_boxplots(
     df,
     params,
-    kind,
-    grouping,
-    variable="",
-    i=0,
+    kind: str,
+    grouping: str,
+    variable: str = "",
+    i: int = 0,
     data_slide=None,
-    override_grouping_title=None,
+    override_grouping_title: str = "",
 ):
     """Create boxplots from the log file.
 
@@ -274,11 +266,12 @@ def plot_boxplots(
         if (i + j) % 4 == 0:
             ss_or_jv = kind if kind == "J-V" else "Steady-state"
             grouping_title = (
-                grouping if override_grouping_title is None else override_grouping_title
+                grouping if override_grouping_title is "" else override_grouping_title
             )
+            page = int((i + j) / 4)
             data_slide = title_image_slide(
                 prs,
-                f"{variable} {ss_or_jv} parameters by {grouping_title}, page {int((i + j) / 4)}",
+                f"{variable} {ss_or_jv} parameters by {grouping_title}, page {page}",
             )
 
         # create boxplot
@@ -325,10 +318,11 @@ def plot_boxplots(
         # only show legend markers for box plots, not swarm plot
         legend_handles, legend_labels = ax.get_legend_handles_labels()
         ax.legend(
-            legend_handles[: int(len(legend_handles) / 2)],
-            legend_labels[: int(len(legend_labels) / 2)],
+            legend_handles[: len(legend_handles) // 2],
+            legend_labels[: len(legend_labels) // 2],
             fontsize="small",
         )
+
         ax.set_xticklabels(
             ax.get_xticklabels(), fontsize="small", rotation=45, ha="right"
         )
@@ -361,7 +355,7 @@ def plot_boxplots(
     return i + j, data_slide
 
 
-def plot_countplots(df, ix, grouping, data_slide, variable=""):
+def plot_countplots(df, ix: int, grouping: str, data_slide, variable: str = ""):
     """Create countplots from the log file.
 
     Parameters
@@ -411,7 +405,7 @@ def plot_countplots(df, ix, grouping, data_slide, variable=""):
     )
 
 
-def plot_stabilisation(df, title, short_name):
+def plot_stabilisation(df, title: str, short_name: str):
     """Plot stabilisation data.
 
     Parameters
@@ -424,7 +418,7 @@ def plot_stabilisation(df, title, short_name):
         short name for file
     """
     i = 0
-    for index, row in df.iterrows():
+    for _, row in df.iterrows():
         # Get label, variable, value, and pixel for title and image path
         label = row["label"]
         variable = row["variable"]
@@ -601,7 +595,7 @@ else:
 # format data if from Python program
 (
     analysis_folder,
-    start_time,
+    experiment_time,
     username,
     experiment_title,
 ) = format_folder(pathlib.Path(args.folder))
@@ -633,13 +627,13 @@ else:
 
 
 # Get username, date, and title from folderpath for the ppt title page
-exp_date = time.strftime("%A %B %d %Y", time.localtime(start_time))
+exp_date = time.strftime("%A %B %d %Y", time.localtime(experiment_time))
 
 # Set physical constants
-kB = constants.Boltzmann
-q = constants.elementary_charge
-c = constants.speed_of_light
-h = constants.Planck
+kB = scipy.constants.Boltzmann
+q = scipy.constants.elementary_charge
+c = scipy.constants.speed_of_light
+h = scipy.constants.Planck
 T = 300
 
 # Read in data from JV log file
@@ -1030,7 +1024,7 @@ best_pixels = sort_best_pixels.drop_duplicates(["variable", "value"])
 # get parameters for defining position of figures in subplot, attempting to
 # make it as square as possible
 no_of_subplots = len(best_pixels["path"])
-subplot_rows = np.ceil(no_of_subplots ** 0.5)
+subplot_rows = np.ceil(no_of_subplots**0.5)
 subplot_cols = np.ceil(no_of_subplots / subplot_rows)
 
 # create lists of varibales and values for labelling figures

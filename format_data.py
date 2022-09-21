@@ -1,7 +1,9 @@
 """Convert a folder of data to a common format."""
 
+
 import argparse
 import csv
+import itertools
 import logging
 import os
 import pathlib
@@ -11,7 +13,7 @@ import uuid
 
 import pandas as pd
 import numpy as np
-import scipy as sp
+import scipy
 import scipy.interpolate
 import yaml
 
@@ -45,9 +47,11 @@ def sort_python_measurement_files(folder):
     # loop over this set of unique devices and sort by measurement order
     search_exts = [".vt.tsv", ".div*.tsv", ".liv*.tsv", ".mppt.tsv", ".it.tsv"]
     sorted_list = []
-    for device_file_name in unique_device_file_names:
-        for ext in search_exts:
-            sorted_list.extend(sorted(list(folder.glob(f"{device_file_name}{ext}"))))
+    for device_file_name, ext in itertools.product(
+        unique_device_file_names, search_exts
+    ):
+        # use list and sort here because the can be multiple div and liv files
+        sorted_list.extend(sorted(list(folder.glob(f"{device_file_name}{ext}"))))
 
     return sorted_list
 
@@ -69,7 +73,7 @@ def get_scan_dir_and_rsfwd(voc, ascending, r_diff, ncompliance):
     ncompliance : list
         Data points not in compliance.
     """
-    if not (isinstance(voc, str)):
+    if not isinstance(voc, str):
         if ascending and voc < 0 or (ascending or voc >= 0) and not ascending:
             scan_dir = "fwd"
             rsfwd_index = 1
@@ -140,7 +144,7 @@ def generate_processed_folder(data_folder, tsv_files, processed_folder):
         # look up area from pixel setup based on analysing the file name
         file_str = str(file.relative_to(data_folder))
         _slot, _label, _device, _timestamp_ext = file_str.split("_")
-        _timestamp, _ext, _tsv = _timestamp_ext.split(".")
+        _timestamp, _ext, _ = _timestamp_ext.split(".")
         _pixel = int(_device.replace("device", ""))
         _area_type = "dark_area" if "div" in _ext else "area"
         _pixel_setup = setup_dict[_timestamp][
@@ -172,8 +176,8 @@ def generate_processed_folder(data_folder, tsv_files, processed_folder):
 
         # write processed data file
         processed_file = processed_folder.joinpath(f"processed_{file_str}")
-        with open(processed_file, "w", newline="\n", encoding="utf-8") as f:
-            writer = csv.writer(f, delimiter="\t")
+        with open(processed_file, "w", newline="\n", encoding="utf-8") as open_file:
+            writer = csv.writer(open_file, delimiter="\t")
             writer.writerows(processed_header + processed_data)
 
         # set universal modification and access times
@@ -197,8 +201,6 @@ def load_run_args(path):
     class CustomLoader(yaml.SafeLoader):
         """Subclass safe loader to avoid modifying it inplace."""
 
-        pass
-
     def construct_uuid(loader, node):
         mapping = loader.construct_mapping(node)
         return uuid.UUID(int=mapping["int"])
@@ -207,10 +209,15 @@ def load_run_args(path):
         "tag:yaml.org,2002:python/object:uuid.UUID", construct_uuid
     )
 
-    with open(path, encoding="utf-8") as f:
-        run_args = yaml.load(f, Loader=CustomLoader)
+    with open(path, encoding="utf-8") as open_file:
+        run_args = yaml.load(open_file, Loader=CustomLoader)
 
     return run_args
+
+
+def dummy_interpolation(anything):
+    """Replace interpolation with nan when interpoltion fails."""
+    return "nan"
 
 
 def format_folder(data_folder):
@@ -272,7 +279,7 @@ def format_folder(data_folder):
             generate_processed_folder(data_folder, tsv_files, processed_folder)
             logger.info("Processed folder generated!")
 
-        processed_files = [f for f in processed_folder.iterdir()]
+        processed_files = list(processed_folder.iterdir())
 
         # sort files by measurement order to allow calculation of derived parameters
         # from other files, e.g. quasi-ff
@@ -302,7 +309,7 @@ def format_folder(data_folder):
 
         pixels_dict = {}
         logger.info("Formatting Python data files...")
-        for ix, file in enumerate(processed_files):
+        for file in processed_files:
             logger.info(file)
 
             try:
@@ -315,8 +322,7 @@ def format_folder(data_folder):
             pixel = pixel.strip("device")
 
             key = f"{label}_{pixel}"
-            # add dictionary key for new pixel to store derived parameters from other
-            # files
+            # add dict key for new pixel to store derived parameters from other files
             if key not in pixels_dict:
                 pixels_dict[key] = {}
 
@@ -372,10 +378,10 @@ def format_folder(data_folder):
             try:
                 ncompliance = [not (int(bin(int(s))[-4])) for s in status]
             except IndexError:
-                ncompliance = [True for s in status]
+                ncompliance = [True for _ in status]
                 logger.warning(
                     "WARNING: Invalid status byte format so can't determine "
-                    + "measurements in complinace."
+                    "measurements in complinace."
                 )
 
             timestamp = int(experiment_timestamp) + time_data[0]
@@ -386,12 +392,93 @@ def format_folder(data_folder):
             area = f"{meas_current[0] / (meas_j[0] / 1000):.4f}"
 
             liv = "liv" in ext1
-            if div or liv:
+            if "vt" in ext1:
+                # override r_diff length if suns_voc performed using mask
+                r_diff = np.zeros(len(data[:, 0][mask]))
+                jsc = 0
+                voc = 0
+                jvff = 0
+                pce = 0
+                vmp = 0
+                jmp = 0
+                quasiff = 0
+                pcess_pcejv = 0
+                scan_rate = 0
+                rsh = 0
+                rsvoc = 0
+                rsfwd = 0
+                time_ss = rel_time[-1]
+                scan_dir = "-"
+
+                vss = np.mean(meas_voltage[-POINTS_TO_AVERAGE:])
+                jss = 0
+                pcess = 0
+                quasivoc = vss
+                lvext = "voc"
+                pixels_dict[key]["quasivoc"] = quasivoc
+            elif "mpp" in ext1:
+                r_diff = np.zeros(len(data[:, 0]))
+                jsc = 0
+                voc = 0
+                jvff = 0
+                pce = 0
+                vmp = 0
+                jmp = 0
+                quasiff = 0
+                pcess_pcejv = 0
+                scan_rate = 0
+                rsh = 0
+                rsvoc = 0
+                rsfwd = 0
+                time_ss = rel_time[-1]
+                scan_dir = "-"
+
+                vss = np.mean(meas_voltage[-POINTS_TO_AVERAGE:])
+                jss = np.mean(meas_j[-POINTS_TO_AVERAGE:])
+                pcess = np.absolute(np.mean(meas_pce[-POINTS_TO_AVERAGE:]))
+                quasipce = pcess
+                lvext = "mpp"
+                pixels_dict[key]["quasipce"] = quasipce
+                pcess_pcejv = pixels_dict[key]["quasipce"] / pixels_dict[key]["ivpce"]
+            elif "it" in ext1:
+                r_diff = np.zeros(len(data[:, 0]))
+                jsc = 0
+                voc = 0
+                jvff = 0
+                pce = 0
+                vmp = 0
+                jmp = 0
+                quasiff = 0
+                pcess_pcejv = 0
+                scan_rate = 0
+                rsh = 0
+                rsvoc = 0
+                rsfwd = 0
+                time_ss = rel_time[-1]
+                scan_dir = "-"
+
+                vss = 0
+                jss = np.mean(meas_j[-POINTS_TO_AVERAGE:])
+                pcess = 0
+                try:
+                    quasiff = (
+                        pixels_dict[key]["quasipce"]
+                        * intensity
+                        / (np.absolute(pixels_dict[key]["quasivoc"]) * np.absolute(jss))
+                    )
+                except KeyError:
+                    logger.warning(
+                        "WARNING: There was no corresponding mpp scan so can't "
+                        "estimate quasi-ff."
+                    )
+                    quasiff = 0
+                lvext = "jsc"
+            elif div or liv:
                 lvext = ext1
 
                 r_diff = np.gradient(meas_voltage, meas_current)
                 try:
-                    f_r_diff = sp.interpolate.interp1d(
+                    f_r_diff = scipy.interpolate.interp1d(
                         meas_voltage[ncompliance],
                         r_diff[ncompliance],
                         kind="linear",
@@ -399,7 +486,7 @@ def format_folder(data_folder):
                         fill_value=0,
                     )
                 except ValueError:
-                    f_r_diff = lambda x: "nan"
+                    f_r_diff = dummy_interpolation
 
                 vss = 0
                 jss = 0
@@ -411,7 +498,7 @@ def format_folder(data_folder):
                 time_ss = 0
 
                 try:
-                    f_j = sp.interpolate.interp1d(
+                    f_j = scipy.interpolate.interp1d(
                         meas_voltage[ncompliance],
                         meas_j[ncompliance],
                         kind="linear",
@@ -419,10 +506,10 @@ def format_folder(data_folder):
                         fill_value=0,
                     )
                 except ValueError:
-                    f_j = lambda x: "nan"
+                    f_j = dummy_interpolation
 
                 try:
-                    f_v = sp.interpolate.interp1d(
+                    f_v = scipy.interpolate.interp1d(
                         meas_j[ncompliance],
                         meas_voltage[ncompliance],
                         kind="linear",
@@ -430,11 +517,11 @@ def format_folder(data_folder):
                         fill_value=0,
                     )
                 except ValueError:
-                    f_v = lambda x: "nan"
+                    f_v = dummy_interpolation
 
                 dpdv = np.gradient(meas_p, meas_voltage)
                 try:
-                    f_dpdv = sp.interpolate.interp1d(
+                    f_dpdv = scipy.interpolate.interp1d(
                         dpdv[ncompliance],
                         meas_voltage[ncompliance],
                         kind="linear",
@@ -442,7 +529,7 @@ def format_folder(data_folder):
                         fill_value=0,
                     )
                 except ValueError:
-                    f_dpdv = lambda x: "nan"
+                    f_dpdv = dummy_interpolation
 
                 voc = f_v(0)
 
@@ -456,83 +543,31 @@ def format_folder(data_folder):
                 vmp = f_dpdv(0)
                 jmp = f_j(vmp)
                 if (
-                    (not (isinstance(jsc, str)))
-                    and (not (isinstance(vmp, str)))
-                    and (not (isinstance(jmp, str)))
+                    (not isinstance(jsc, str))
+                    and (not isinstance(vmp, str))
+                    and (not isinstance(jmp, str))
                 ):
-                    ff = vmp * jmp / (jsc * voc)
-                    mp = vmp * jmp
-                    pce = np.absolute(mp / intensity)
+                    pmp = vmp * jmp
+                    jvff = pmp / (jsc * voc)
+                    pce = np.absolute(pmp / intensity)
                 else:
-                    ff = "nan"
-                    mp = "nan"
+                    jvff = "nan"
+                    pmp = "nan"
                     pce = "nan"
-                rsvoc = f_r_diff(voc)
+                try:
+                    rsvoc = f_r_diff(voc)
+                except NameError:
+                    rsvoc = "nan"
 
-                if liv and (not (isinstance(pce, str))):
+                if liv and (not isinstance(pce, str)):
                     if ("liv" in ext1) and ("ivpce" not in pixels_dict[key]):
                         # reset stored jv pce if first liv, for PCE_SS/PCE_JV calc
                         pixels_dict[key]["ivpce"] = pce
                     elif pce > pixels_dict[key]["ivpce"]:
                         # update if new pce is higher
                         pixels_dict[key]["ivpce"] = pce
-            elif (vt := "vt" in ext1) or (mpp := "mpp" in ext1) or (it := "it" in ext1):
-                r_diff = np.zeros(len(data[:, 0]))
-                jsc = 0
-                voc = 0
-                ff = 0
-                pce = 0
-                vmp = 0
-                jmp = 0
-                quasiff = 0
-                pcess_pcejv = 0
-                scan_rate = 0
-                rsh = 0
-                rsvoc = 0
-                rsfwd = 0
-                time_ss = rel_time[-1]
-                scan_dir = "-"
-
-                if vt:
-                    # override r_diff length if suns_voc performed using mask
-                    r_diff = np.zeros(len(data[:, 0][mask]))
-
-                    vss = np.mean(meas_voltage[-POINTS_TO_AVERAGE:])
-                    jss = 0
-                    pcess = 0
-                    quasivoc = vss
-                    lvext = "voc"
-                    pixels_dict[key]["quasivoc"] = quasivoc
-                elif mpp:
-                    vss = np.mean(meas_voltage[-POINTS_TO_AVERAGE:])
-                    jss = np.mean(meas_j[-POINTS_TO_AVERAGE:])
-                    pcess = np.absolute(np.mean(meas_pce[-POINTS_TO_AVERAGE:]))
-                    quasipce = pcess
-                    lvext = "mpp"
-                    pixels_dict[key]["quasipce"] = quasipce
-                    pcess_pcejv = (
-                        pixels_dict[key]["quasipce"] / pixels_dict[key]["ivpce"]
-                    )
-                elif it:
-                    vss = 0
-                    jss = np.mean(meas_j[-POINTS_TO_AVERAGE:])
-                    pcess = 0
-                    try:
-                        quasiff = (
-                            pixels_dict[key]["quasipce"]
-                            * intensity
-                            / (
-                                np.absolute(pixels_dict[key]["quasivoc"])
-                                * np.absolute(jss)
-                            )
-                        )
-                    except KeyError:
-                        logger.warning(
-                            "WARNING: There was no corresponding mpp scan so can't "
-                            + "estimate quasi-ff."
-                        )
-                        quasiff = 0
-                    lvext = "jsc"
+            else:
+                raise ValueError(f"Invalid file extension: {ext1}.")
 
             # generate new path
             new_file_rel = str(file.relative_to(processed_folder)).replace(
@@ -557,14 +592,15 @@ def format_folder(data_folder):
                     )
                 ).tolist()
             except ValueError:
-                logger.info(file, len(rel_time), len(r_diff))
+                write_data = []
+                logger.error(file, len(rel_time), len(r_diff))
 
             # get metadata
             metadata = [
                 ["Jsc (mA/cm^2)", jsc],
                 ["PCE (%)", pce],
                 ["Voc (V)", voc],
-                ["FF", ff],
+                ["FF", jvff],
                 ["V_MPP (V)", vmp],
                 ["J_MPP (mA/cm^2)", jmp],
                 ["V_SS (V)", vss],
@@ -609,12 +645,12 @@ def format_folder(data_folder):
             ]
 
             # write new data file
-            with open(new_file, "w", newline="\n", encoding="utf-8") as f:
-                writer = csv.writer(f, delimiter="\t")
+            with open(new_file, "w", newline="\n", encoding="utf-8") as open_file:
+                writer = csv.writer(open_file, delimiter="\t")
                 writer.writerows(iv_header + write_data + metadata)
 
         logger.info(
-            f"Formatting complete! Formatted data can be found in: {analysis_folder}."
+            "Formatting complete! Formatted data can be found in: %s.", analysis_folder
         )
     else:
         logger.info("Data probably created with the LabVIEW measurement program.")
@@ -624,21 +660,20 @@ def format_folder(data_folder):
         username = str(data_folder.parts[-2])
 
         extensions = [".voc", ".liv1", ".liv2", ".mpp", ".jsc", ".div1", ".div2"]
-        # TODO: sort by date created
         data_files = [f for f in data_folder.iterdir() if f.suffix in extensions]
 
         for file in data_files:
             extension = file.suffix
             new_file = analysis_folder.joinpath(file.parts[-1])
             if extension in [".liv1", ".liv2", ".div1", ".div2"]:
-                with open(file, "r") as f:
-                    reader = csv.reader(f, delimiter="\t")
+                with open(file, "r", encoding="utf-8") as open_file:
+                    reader = csv.reader(open_file, delimiter="\t")
                     header = []
                     data_cols = 0
                     data = []
                     footer = []
-                    for ix, row in enumerate(reader):
-                        if ix == 0:
+                    for index, row in enumerate(reader):
+                        if index == 0:
                             header = row
                             data_cols = len(row)
                         elif len(row) == data_cols:
@@ -657,9 +692,9 @@ def format_folder(data_folder):
                 # get details from footer
                 scan_dir_ix = None
                 voc = "nan"
-                for ix, row in enumerate(footer):
+                for index, row in enumerate(footer):
                     if "Scan direction" in row:
-                        scan_dir_ix = ix
+                        scan_dir_ix = index
                     elif "Voc (V)" in row:
                         voc = float(row[1])
 
@@ -672,8 +707,8 @@ def format_folder(data_folder):
                 if scan_dir_ix is not None:
                     footer[scan_dir_ix][1] = scan_dir
 
-                with open(new_file, "w") as f:
-                    writer = csv.writer(f, delimiter="\t")
+                with open(new_file, "w", encoding="utf-8") as open_file:
+                    writer = csv.writer(open_file, delimiter="\t")
                     writer.writerow(header)
                     writer.writerows(data)
                     writer.writerows(footer)

@@ -1,12 +1,13 @@
 """Query Github to check if current version is latest."""
 
 import re
+import urllib.error
 import urllib.request
 import warnings
 import packaging.version
 
-repo_url = "https://github.com/jmball/data_analysis"
-releases_url = repo_url + "/releases"
+REPO_URL = "https://github.com/jmball/data_analysis"
+RELEASES_URL = f"{REPO_URL}/releases"
 
 
 def get_latest_release_version():
@@ -15,8 +16,9 @@ def get_latest_release_version():
     Release version tags are formatted as "v[semantic version]", e.g. "v1.0.0".
     """
     # get html of releases webpage
+    # suppress linter warning about urllib as url is hard coded
     try:
-        page = urllib.request.urlopen(releases_url)
+        page = urllib.request.urlopen(RELEASES_URL)  # nosec
     except urllib.error.URLError:
         warnings.warn("Cannot access URL. Check internet connection.")
         return None
@@ -24,12 +26,12 @@ def get_latest_release_version():
 
     # official regex for a semantic version string
     # from https://semver.org#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
-    sem_ver_re = "^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
+    sem_ver_re = r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
 
     # remove limitations of single line (i.e. remove ^ and $) from official string to
     # allow searching for a semantic version string as a substring, and prepend "v" to
     # match release tags
-    tag_re = "(v)" + sem_ver_re[1:-1]
+    tag_re = f"(v){sem_ver_re[1:-1]}"
 
     # search html to get all version tags on the releases page
     pattern = re.compile(tag_re)
