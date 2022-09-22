@@ -1,5 +1,6 @@
 """Generate a report of solar cell measurement data."""
 
+import contextlib
 import logging
 import os
 import pathlib
@@ -98,11 +99,11 @@ def create_logger(log_dir: str, debug: bool = False):
     # create logger
     logging.captureWarnings(True)
     _logger = logging.getLogger()
-    log_level = 10 if debug is True else 20
+    log_level = 10 if debug else 20
     _logger.setLevel(log_level)
 
     # create a filter to remove messages from certain imports
-    class importFilter(logging.Filter):
+    class ImportFilter(logging.Filter):
         """Filter log records from named third-party imports."""
 
         def filter(self, record: logging.LogRecord) -> bool:
@@ -114,20 +115,22 @@ def create_logger(log_dir: str, debug: bool = False):
                 return True
 
     # create console handler
-    ch = logging.StreamHandler()
-    ch.setLevel(log_level)
-    ch.addFilter(importFilter())
-    _logger.addHandler(ch)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(log_level)
+    console_handler.addFilter(ImportFilter())
+    _logger.addHandler(console_handler)
 
     # add file handler for debugging
-    if debug is True:
+    if debug:
         formatter = logging.Formatter("%(asctime)s|%(name)s|%(levelname)s|%(message)s")
 
-        fh = logging.FileHandler(pathlib.Path(log_dir).joinpath("debug.txt"), mode="w")
-        fh.setLevel(log_level)
-        fh.setFormatter(formatter)
-        fh.addFilter(importFilter())
-        _logger.addHandler(fh)
+        file_handler = logging.FileHandler(
+            pathlib.Path(log_dir).joinpath("debug.txt"), mode="w"
+        )
+        file_handler.setLevel(log_level)
+        file_handler.setFormatter(formatter)
+        file_handler.addFilter(ImportFilter())
+        _logger.addHandler(file_handler)
 
     return _logger
 
@@ -171,7 +174,7 @@ def recursive_path_split(filepath) -> tuple:
 
 def title_image_slide(prs, title: str):
     """
-    Creates a new slide in the presentation (prs) with a formatted title.
+    Create a new slide in the presentation (prs) with a formatted title.
 
     Parameters
     ----------
@@ -203,8 +206,8 @@ def title_image_slide(prs, title: str):
     text_frame.vertical_anchor = MSO_ANCHOR.TOP
 
     # Edit title fontsize and style
-    p = text_frame.paragraphs[0]
-    run = p.runs[0]
+    para = text_frame.paragraphs[0]
+    run = para.runs[0]
     font = run.font
     font.size = Pt(16)
     font.bold = True
@@ -213,12 +216,12 @@ def title_image_slide(prs, title: str):
 
 
 def plot_boxplots(
-    df,
+    dataframe,
     params,
     kind: str,
     grouping: str,
     variable: str = "",
-    i: int = 0,
+    start_index: int = 0,
     data_slide=None,
     override_grouping_title: str = "",
 ):
@@ -226,7 +229,7 @@ def plot_boxplots(
 
     Parameters
     ----------
-    df : DataFrame
+    dataframe : pandas.DataFrame
         logfile or group
     params : list of str
         parameters to plot
@@ -236,9 +239,8 @@ def plot_boxplots(
         how data are grouped
     variable : str
         variable
-    i : int
-        starting index of boxplot. Useful if carrying on page from previous
-        plots.
+    start_index : int
+        starting index of boxplot. Useful if carrying on page from previous plots.
     data_slide : prs object
         current slide. Useful if carrying on from previous plots.
     override_grouping_title : str
@@ -260,109 +262,109 @@ def plot_boxplots(
         "pcesspcejv": {"SSPO": "PCE_ss/PCE_jv"},
     }
 
-    j = 0
-    for p in params:
+    plot_index = 0
+    for param in params:
         # create a new slide for every 4 plots
-        if (i + j) % 4 == 0:
+        if (start_index + plot_index) % 4 == 0:
             ss_or_jv = kind if kind == "J-V" else "Steady-state"
-            grouping_title = (
-                grouping if override_grouping_title is "" else override_grouping_title
-            )
-            page = int((i + j) / 4)
+            grouping_title = override_grouping_title or grouping
+            page = int((start_index + plot_index) / 4)
             data_slide = title_image_slide(
                 prs,
                 f"{variable} {ss_or_jv} parameters by {grouping_title}, page {page}",
             )
 
         # create boxplot
-        fig, ax = plt.subplots(
-            1, 1, dpi=300, **{"figsize": (A4_width / 2, A4_height / 2)}
+        fig, ax1 = plt.subplots(
+            1, 1, dpi=300, **{"figsize": (A4_WIDTH / 2, A4_HEIGHT / 2)}
         )
 
         # get grouping of data for box and swarm plots
         if kind == "J-V":
             hue = (
-                df["scandirection"]
-                + np.array([", "] * len(df["area"]))
-                + df["area"].astype(str)
+                dataframe["scandirection"]
+                + np.array([", "] * len(dataframe["area"]))
+                + dataframe["area"].astype(str)
             )
         else:
-            hue = df["area"]
+            hue = dataframe["area"]
 
         try:
             sns.boxplot(
-                x=df[grouping],
-                y=np.absolute(df[p].astype(float)),
+                x=dataframe[grouping],
+                y=np.absolute(dataframe[param].astype(float)),
                 hue=hue,
                 palette="deep",
                 linewidth=0.5,
-                ax=ax,
+                ax=ax1,
                 showfliers=False,
             )
-        except ValueError as e:
-            logger.error(hue, grouping, p, kind)
-            logger.error(df["jsc"])
-            raise ValueError from e
+        except ValueError as err:
+            logger.error(hue, grouping, param, kind)
+            logger.error(dataframe["jsc"])
+            raise ValueError from err
         sns.swarmplot(
-            x=df[grouping],
-            y=np.absolute(df[p].astype(float)),
+            x=dataframe[grouping],
+            y=np.absolute(dataframe[param].astype(float)),
             hue=hue,
             palette="muted",
             size=3,
             linewidth=0.5,
             edgecolor="gray",
             dodge=True,
-            ax=ax,
+            ax=ax1,
         )
 
         # only show legend markers for box plots, not swarm plot
-        legend_handles, legend_labels = ax.get_legend_handles_labels()
-        ax.legend(
+        legend_handles, legend_labels = ax1.get_legend_handles_labels()
+        ax1.legend(
             legend_handles[: len(legend_handles) // 2],
             legend_labels[: len(legend_labels) // 2],
             fontsize="small",
         )
 
-        ax.set_xticklabels(
-            ax.get_xticklabels(), fontsize="small", rotation=45, ha="right"
+        ax1.set_xticklabels(
+            ax1.get_xticklabels(), fontsize="small", rotation=45, ha="right"
         )
-        ax.set_xlabel("")
-        if p in ["jsc", "voc", "pce", "vmpp", "jmpp", "jss", "pcess", "vss"]:
-            if fix_ymin_0:
-                ax.set_ylim(0)
-        elif p in ["ff", "quasiff"]:
-            if fix_ymin_0:
-                ax.set_ylim(0, 1)
+        ax1.set_xlabel("")
+        if param in ["jsc", "voc", "pce", "vmpp", "jmpp", "jss", "pcess", "vss"]:
+            if FIX_YMIN_0:
+                ax1.set_ylim(0)
+        elif param in ["ff", "quasiff"]:
+            if FIX_YMIN_0:
+                ax1.set_ylim(0, 1)
 
-        ax.set_ylabel(plot_labels_dict[p][kind], fontsize="small")
+        ax1.set_ylabel(plot_labels_dict[param][kind], fontsize="small")
 
         fig.tight_layout()
 
         # save figure and add to powerpoint
-        image_png = os.path.join(image_folder, f"boxplot_{p}.png")
-        image_svg = os.path.join(image_folder, f"boxplot_{p}.svg")
+        image_png = os.path.join(image_folder, f"boxplot_{param}.png")
+        image_svg = os.path.join(image_folder, f"boxplot_{param}.svg")
         fig.savefig(image_png)
         fig.savefig(image_svg)
         if data_slide is not None:
             data_slide.shapes.add_picture(
                 image_png,
-                left=lefts[str((i + j) % 4)],
-                top=tops[str((i + j) % 4)],
-                height=height,
+                left=LEFTS[str((start_index + plot_index) % 4)],
+                top=TOPS[str((start_index + plot_index) % 4)],
+                height=IMAGE_HEIGHT,
             )
-        j += 1
+        plot_index += 1
 
-    return i + j, data_slide
+    return start_index + plot_index, data_slide
 
 
-def plot_countplots(df, ix: int, grouping: str, data_slide, variable: str = ""):
+def plot_countplots(
+    dataframe, index: int, grouping: str, data_slide, variable: str = ""
+):
     """Create countplots from the log file.
 
     Parameters
     ----------
-    df : DataFrame
+    dataframe : DataFrame
         logfile or group
-    ix : int
+    index : int
         figure index
     grouping : str
         how data are grouped
@@ -372,53 +374,57 @@ def plot_countplots(df, ix: int, grouping: str, data_slide, variable: str = ""):
         variable
     """
     # create count plot
-    fig, ax = plt.subplots(1, 1, dpi=300, **{"figsize": (A4_width / 2, A4_height / 2)})
+    fig, ax1 = plt.subplots(1, 1, dpi=300, **{"figsize": (A4_WIDTH / 2, A4_HEIGHT / 2)})
     if grouping == "value":
-        ax.set_title(f"{variable}", fontdict={"fontsize": "small"})
+        ax1.set_title(f"{variable}", fontdict={"fontsize": "small"})
     sns.countplot(
-        x=df[grouping],
-        data=df,
-        hue=df["scandirection"],
+        x=dataframe[grouping],
+        data=dataframe,
+        hue=dataframe["scandirection"],
         linewidth=0.5,
         palette="deep",
         edgecolor="black",
-        ax=ax,
+        ax=ax1,
     )
-    legend_handles, legend_labels = ax.get_legend_handles_labels()
-    ax.legend(
+    legend_handles, legend_labels = ax1.get_legend_handles_labels()
+    ax1.legend(
         legend_handles[:],
         legend_labels[:],
         fontsize="small",
     )
-    ax.set_xticklabels(ax.get_xticklabels(), fontsize="small", rotation=45, ha="right")
-    ax.set_xlabel("")
-    ax.set_ylabel("Number of working pixels", fontsize="small")
+    ax1.set_xticklabels(
+        ax1.get_xticklabels(), fontsize="small", rotation=45, ha="right"
+    )
+    ax1.set_xlabel("")
+    ax1.set_ylabel("Number of working pixels", fontsize="small")
     fig.tight_layout()
 
     # save figure and add to powerpoint
-    image_png = os.path.join(image_folder, f"boxchart_yields{ix}.png")
-    image_svg = os.path.join(image_folder, f"boxchart_yields{ix}.svg")
+    image_png = os.path.join(image_folder, f"boxchart_yields{index}.png")
+    image_svg = os.path.join(image_folder, f"boxchart_yields{index}.svg")
     fig.savefig(image_png)
     fig.savefig(image_svg)
     data_slide.shapes.add_picture(
-        image_png, left=lefts[str(ix % 4)], top=tops[str(ix % 4)], height=height
+        image_png,
+        left=LEFTS[str(index % 4)],
+        top=TOPS[str(index % 4)],
+        height=IMAGE_HEIGHT,
     )
 
 
-def plot_stabilisation(df, title: str, short_name: str):
+def plot_stabilisation(dataframe, title: str, short_name: str):
     """Plot stabilisation data.
 
     Parameters
     ----------
-    df : dataFrame
+    dataframe : dataFrame
         data to plot
     title : str
         slide title
     short_name : str
         short name for file
     """
-    i = 0
-    for _, row in df.iterrows():
+    for index, (_, row) in enumerate(dataframe.iterrows()):
         # Get label, variable, value, and pixel for title and image path
         label = row["label"]
         variable = row["variable"]
@@ -427,98 +433,105 @@ def plot_stabilisation(df, title: str, short_name: str):
         vspo = row["vss"]
 
         # Start a new slide after every 4th figure
-        if i % 4 == 0:
-            data_slide = title_image_slide(prs, f"{title}, page {int(i / 4)}")
+        if index % 4 == 0:
+            data_slide = title_image_slide(prs, f"{title}, page {int(index / 4)}")
 
         # Open the data file
         path = row["relativepath"]
-        if short_name == "spo":
-            cols = (0, 2, 4, 6)
-        elif short_name == "sjsc":
+        if short_name == "sjsc":
             cols = (0, 4)
+        elif short_name == "spo":
+            cols = (0, 2, 4, 6)
         elif short_name == "svoc":
             cols = (0, 2)
-        s = np.genfromtxt(
-            path, delimiter="\t", skip_header=1, skip_footer=num_cols, usecols=cols
+        else:
+            cols = ()
+
+        data = np.genfromtxt(
+            path, delimiter="\t", skip_header=1, skip_footer=NUM_COLS, usecols=cols
         )
-        try:
-            s = s[~np.isnan(s).any(axis=1)]
-        except:
-            pass
+        with contextlib.suppress(Exception):
+            data = data[~np.isnan(data).any(axis=1)]
 
         try:
-            if short_name == "spo":
-                fig, ax = plt.subplots(
-                    3, 1, sharex=True, figsize=(A4_width / 2, A4_height / 2), dpi=300
+            if short_name == "sjsc":
+                fig, ax1 = plt.subplots(
+                    1, 1, figsize=(A4_WIDTH / 2, A4_HEIGHT / 2), dpi=300
                 )
-                ax1, ax2, ax3 = ax
+                ax1.set_title(
+                    f"{label}, pixel {pixel}, {variable}, {value}",
+                    fontdict={"fontsize": "small"},
+                )
+                ax1.scatter(
+                    data[:, 0], np.absolute(data[:, 1]), color="black", s=5, label="Jsc"
+                )
+                ax1.set_ylabel("|Jsc| (mA/cm^2)", fontsize="small")
+                ax1.set_ylim(0, np.max(np.absolute(data[:, 1])) * 1.1)
+                ax1.set_xlabel("Time (s)", fontsize="small")
+                ax1.set_xlim(0)
+                ax1.tick_params(direction="in", top=True, right=True, labelsize="small")
+                fig.tight_layout()
+            elif short_name == "spo":
+                fig, axs = plt.subplots(
+                    3, 1, sharex=True, figsize=(A4_WIDTH / 2, A4_HEIGHT / 2), dpi=300
+                )
+                ax1, ax2, ax3 = axs
                 fig.subplots_adjust(hspace=0)
                 ax1.set_title(
                     f"{label}, pixel {pixel}, {variable}, {value}, vspo = {vspo} V",
                     fontdict={"fontsize": "small"},
                 )
                 ax1.scatter(
-                    s[:, 0], np.absolute(s[:, 2]), color="black", s=5, label="J"
+                    data[:, 0], np.absolute(data[:, 2]), color="black", s=5, label="J"
                 )
                 ax1.set_ylabel("|J| (mA/cm^2)", fontsize="small")
-                ax1.set_ylim(0, np.max(np.absolute(s[:, 2])) * 1.1)
+                ax1.set_ylim(0, np.max(np.absolute(data[:, 2])) * 1.1)
                 ax3.tick_params(direction="in", top=True, right=True)
                 ax2.scatter(
-                    s[:, 0],
-                    np.absolute(s[:, 3]),
+                    data[:, 0],
+                    np.absolute(data[:, 3]),
                     color="red",
                     s=5,
                     marker="s",
                     label="pce",
                 )
                 ax2.set_ylabel("PCE (%)", fontsize="small")
-                ax2.set_ylim(0, np.max(np.absolute(s[:, 3])) * 1.1)
+                ax2.set_ylim(0, np.max(np.absolute(data[:, 3])) * 1.1)
                 ax2.tick_params(direction="in", top=True, right=True)
                 ax3.scatter(
-                    s[:, 0],
-                    np.absolute(s[:, 1]),
+                    data[:, 0],
+                    np.absolute(data[:, 1]),
                     color="blue",
                     s=5,
                     marker="s",
                     label="v",
                 )
                 ax3.set_ylabel("V (V)", fontsize="small")
-                ax3.set_ylim(0, np.max(np.absolute(s[:, 1])) * 1.1)
+                ax3.set_ylim(0, np.max(np.absolute(data[:, 1])) * 1.1)
                 ax3.set_xlabel("Time (s)", fontsize="small")
                 ax3.tick_params(direction="in", top=True, right=True, labelsize="small")
                 fig.align_ylabels([ax1, ax2, ax3])
-            elif short_name == "sjsc":
-                fig = plt.figure(figsize=(A4_width / 2, A4_height / 2), dpi=300)
-                ax1 = fig.add_subplot(1, 1, 1)
-                ax1.set_title(
-                    f"{label}, pixel {pixel}, {variable}, {value}",
-                    fontdict={"fontsize": "small"},
-                )
-                ax1.scatter(
-                    s[:, 0], np.absolute(s[:, 1]), color="black", s=5, label="Jsc"
-                )
-                ax1.set_ylabel("|Jsc| (mA/cm^2)", fontsize="small")
-                ax1.set_ylim(0, np.max(np.absolute(s[:, 1])) * 1.1)
-                ax1.set_xlabel("Time (s)", fontsize="small")
-                ax1.set_xlim(0)
-                ax1.tick_params(direction="in", top=True, right=True, labelsize="small")
-                fig.tight_layout()
             elif short_name == "svoc":
-                fig = plt.figure(figsize=(A4_width / 2, A4_height / 2), dpi=300)
-                ax1 = fig.add_subplot(1, 1, 1)
+                fig, ax1 = plt.subplots(
+                    1, 1, figsize=(A4_WIDTH / 2, A4_HEIGHT / 2), dpi=300
+                )
                 ax1.set_title(
                     f"{label}, pixel {pixel}, {variable}, {value}",
                     fontdict={"fontsize": "small"},
                 )
                 ax1.scatter(
-                    s[:, 0], np.absolute(s[:, 1]), color="black", s=5, label="Voc"
+                    data[:, 0], np.absolute(data[:, 1]), color="black", s=5, label="Voc"
                 )
                 ax1.set_ylabel("|Voc| (V)", fontsize="small")
-                ax1.set_ylim(0, np.max(np.absolute(s[:, 1])) * 1.1)
+                ax1.set_ylim(0, np.max(np.absolute(data[:, 1])) * 1.1)
                 ax1.set_xlabel("Time (s)", fontsize="small")
                 ax1.set_xlim(0)
                 ax1.tick_params(direction="in", top=True, right=True, labelsize="small")
                 fig.tight_layout()
+            else:
+                fig, ax1 = plt.subplots(
+                    1, 1, figsize=(A4_WIDTH / 2, A4_HEIGHT / 2), dpi=300
+                )
 
             # Format the figure layout, save to file, and add to ppt
             image_png = os.path.join(
@@ -530,16 +543,18 @@ def plot_stabilisation(df, title: str, short_name: str):
             fig.savefig(image_png)
             fig.savefig(image_svg)
             data_slide.shapes.add_picture(
-                image_png, left=lefts[str(i % 4)], top=tops[str(i % 4)], height=height
+                image_png,
+                left=LEFTS[str(index % 4)],
+                top=TOPS[str(index % 4)],
+                height=IMAGE_HEIGHT,
             )
 
             # Close figure
             plt.close(fig)
         except IndexError:
-            logger.info("indexerror")
-            pass
+            logger.error("indexerror")
 
-        i += 1
+        index += 1
 
 
 def plot_spectra(files):
@@ -554,17 +569,22 @@ def plot_spectra(files):
 
     data_slide = title_image_slide(prs, "Measured illumination spectra")
 
-    fig, ax = plt.subplots(1, 1, figsize=(A4_width, A4_height), dpi=300)
-    for i, f in enumerate(files):
-        if os.path.getsize(f) != 0:
-            spectrum = np.genfromtxt(f, delimiter="\t")
-            ax.plot(spectrum[:, 0], spectrum[:, 1], color=cmap(i * c_div), label=f"{i}")
-    ax.set_ylabel("Spectral irradiance (W/cm^2/nm)", fontsize="large")
-    ax.set_ylim(0)
-    ax.tick_params(direction="in", top=True, right=True, labelsize="large")
-    ax.set_xlabel("Wavelength (nm)", fontsize="large")
-    ax.set_xlim(350, 1100)
-    ax.legend(fontsize="large")
+    fig, ax1 = plt.subplots(1, 1, figsize=(A4_WIDTH, A4_HEIGHT), dpi=300)
+    for index, file in enumerate(files):
+        if os.path.getsize(file) != 0:
+            spectrum = np.genfromtxt(file, delimiter="\t")
+            ax1.plot(
+                spectrum[:, 0],
+                spectrum[:, 1],
+                color=cmap(index * c_div),
+                label=f"{index}",
+            )
+    ax1.set_ylabel("Spectral irradiance (W/cm^2/nm)", fontsize="large")
+    ax1.set_ylim(0)
+    ax1.tick_params(direction="in", top=True, right=True, labelsize="large")
+    ax1.set_xlabel("Wavelength (nm)", fontsize="large")
+    ax1.set_xlim(350, 1100)
+    ax1.legend(fontsize="large")
 
     fig.tight_layout()
 
@@ -574,11 +594,485 @@ def plot_spectra(files):
     fig.savefig(image_png)
     fig.savefig(image_svg)
     data_slide.shapes.add_picture(
-        image_png, left=lefts["0"], top=tops["0"], height=height * 2
+        image_png, left=LEFTS["0"], top=TOPS["0"], height=IMAGE_HEIGHT * 2
     )
 
     # Close figure
     plt.close(fig)
+
+
+def plot_best_jvs_by_label(groups, substrate_info):
+    """Plot best jv curves for each substrate.
+
+    Parameters
+    ----------
+    groups : pandas.GroupBy
+        data frame grouped by label.
+    substrate_info : pandas.DataFrame
+        data frame from which variables, values, and labels can be inferred.
+    """
+    variables = list(substrate_info["variable"])
+    values = list(substrate_info["value"])
+    labels = list(substrate_info["label"])
+
+    # get parameters for plot formatting
+    c_div = 1 / 8
+
+    # Create figures, save images and add them to powerpoint slide
+    for index, (_, group) in enumerate(groups):
+        # Create a new slide after every four graphs are produced
+        if index % 4 == 0:
+            data_slide = title_image_slide(
+                prs, f"Best JV scans of every working pixel, page {int(index / 4)}"
+            )
+
+        # Create figure, axes, y=0 line, and title
+        fig, ax1 = plt.subplots(1, 1, figsize=(A4_WIDTH / 2, A4_HEIGHT / 2), dpi=300)
+        ax1.axhline(0, lw=0.5, c="black")
+        ax1.axvline(0, lw=0.5, c="black")
+        ax1.set_title(
+            f"{labels[index]}, {variables[index]}, {values[index]}",
+            fontdict={"fontsize": "small"},
+        )
+
+        pixels = list(group["pixel"].astype(int))
+
+        # find signs of jsc and voc to determine max and min axis limits
+        jsc_signs, jsc_counts = np.unique(np.sign(group["jmpp"]), return_counts=True)
+        voc_signs, voc_counts = np.unique(np.sign(group["voc"]), return_counts=True)
+        if len(jsc_signs) == 1:
+            jsc_sign = jsc_signs[0]
+        else:
+            max_ix = np.argmax(jsc_counts)
+            jsc_sign = jsc_signs[max_ix]
+        if len(voc_signs) == 1:
+            voc_sign = voc_signs[0]
+        else:
+            max_ix = np.argmax(voc_counts)
+            voc_sign = voc_signs[max_ix]
+
+        # load data for each pixel and plot on axes
+        fwd_j = []
+        rev_j = []
+        for data_index, (file, scan_dir) in enumerate(
+            zip(group["relativepath"], group["scandirection"])
+        ):
+            if scan_dir == "fwd":
+                data_fwd = np.genfromtxt(
+                    file,
+                    delimiter="\t",
+                    skip_header=1,
+                    skip_footer=NUM_COLS,
+                    usecols=(2, 4),
+                )
+                data_fwd = data_fwd[~np.isnan(data_fwd).any(axis=1)]
+                ax1.plot(
+                    data_fwd[:, 0],
+                    data_fwd[:, 1],
+                    c=cmap(pixels[data_index] * c_div),
+                    lw=2.0,
+                )
+                if (
+                    (jsc_sign > 0) & (voc_sign > 0)
+                    or not (jsc_sign > 0) & (voc_sign < 0)
+                    and (jsc_sign < 0) & (voc_sign > 0)
+                ):
+                    fwd_j.append(data_fwd[0, 1])
+                    rev_j.append(data_fwd[-1, 1])
+                elif (jsc_sign > 0) & (voc_sign < 0) or (jsc_sign < 0) & (voc_sign < 0):
+                    fwd_j.append(data_fwd[-1, 1])
+                    rev_j.append(data_fwd[0, 1])
+            elif scan_dir == "rev":
+                data_rev = np.genfromtxt(
+                    file,
+                    delimiter="\t",
+                    skip_header=1,
+                    skip_footer=NUM_COLS,
+                    usecols=(2, 4),
+                )
+                data_rev = data_rev[~np.isnan(data_rev).any(axis=1)]
+                ax1.plot(
+                    data_rev[:, 0],
+                    data_rev[:, 1],
+                    label=pixels[data_index],
+                    c=cmap(pixels[data_index] * c_div),
+                    lw=2.0,
+                )
+                if (
+                    (jsc_sign > 0) & (voc_sign > 0)
+                    or not (jsc_sign > 0) & (voc_sign < 0)
+                    and (jsc_sign < 0) & (voc_sign > 0)
+                ):
+                    fwd_j.append(data_rev[-1, 1])
+                    rev_j.append(data_rev[0, 1])
+                elif (jsc_sign > 0) & (voc_sign < 0) or (jsc_sign < 0) & (voc_sign < 0):
+                    fwd_j.append(data_rev[0, 1])
+                    rev_j.append(data_rev[-1, 1])
+
+        # Format the axes
+        ax1.tick_params(direction="in", top=True, right=True, labelsize="small")
+        ax1.set_xlabel("Applied bias (V)", fontsize="small")
+        ax1.set_ylabel("J (mA/cm^2)", fontsize="small")
+
+        # Adjust plot width to add legend outside plot area
+        box = ax1.get_position()
+        ax1.set_position([box.x0, box.y0, box.width * 0.85, box.height])
+        legend_handles, legend_labels = ax1.get_legend_handles_labels()
+        lgd = ax1.legend(
+            legend_handles,
+            legend_labels,
+            loc="upper left",
+            bbox_to_anchor=(1, 1),
+            title="pixel #",
+            fontsize="small",
+        )
+
+        # Format the figure layout, save to file, and add to ppt
+        image_png = os.path.join(image_folder, f"jv_all_{labels[index]}.png")
+        image_svg = os.path.join(image_folder, f"jv_all_{labels[index]}.svg")
+        fig.savefig(image_png, bbox_extra_artists=(lgd,), bbox_inches="tight")
+        fig.savefig(image_svg, bbox_extra_artists=(lgd,), bbox_inches="tight")
+        data_slide.shapes.add_picture(
+            image_png,
+            left=LEFTS[str(index % 4)],
+            top=TOPS[str(index % 4)],
+            height=IMAGE_HEIGHT,
+        )
+
+        # Close figure
+        plt.close(fig)
+
+
+def plot_best_jvs_by_variable_value(best_pixels):
+    """Plot JV curves of best pixels by variable value.
+
+    Parameters
+    ----------
+    best_pixels : pandas.DataFrame
+        data frame of best pixels for each variable value
+    """
+    # create lists of varibales and values for labelling figures
+    variables = list(best_pixels["variable"])
+    values = list(best_pixels["value"])
+    labels = list(best_pixels["label"])
+    jsc_signs = list(np.sign(best_pixels["jmpp"]))
+    voc_signs = list(np.sign(best_pixels["voc"]))
+
+    # Loop for iterating through best pixels dataframe and picking out JV data
+    # files. Each plot contains forward and reverse sweeps, both light and dark.
+    for index, (file, scan_dir) in enumerate(
+        zip(best_pixels["relativepath"], best_pixels["scandirection"])
+    ):
+        # Create a new slide after every four graphs are produced
+        if index % 4 == 0:
+            data_slide = title_image_slide(
+                prs, f"Best pixel JVs, page {int(index / 4)}"
+            )
+
+        # Create figure, axes, y=0 line, and title
+        fig, ax1 = plt.subplots(1, 1, figsize=(A4_WIDTH / 2, A4_HEIGHT / 2), dpi=300)
+        ax1.axhline(0, lw=0.5, c="black")
+        ax1.axvline(0, lw=0.5, c="black")
+        ax1.set_title(
+            f"{variables[index]}, {values[index]}, {labels[index]}",
+            fontdict={"fontsize": "small"},
+        )
+
+        # Import data for each pixel and plot on axes, ignoring errors. If
+        # data in a file can't be plotted just ignore it.
+        # TODO: handle case with > 2 scans
+        if scan_dir == "rev":
+            jv_light_rev_path = file
+            if file.endswith("liv1"):
+                jv_light_fwd_path = file.replace("liv1", "liv2")
+            elif file.endswith("liv2"):
+                jv_light_fwd_path = file.replace("liv2", "liv1")
+        elif scan_dir == "fwd":
+            jv_light_fwd_path = file
+            if file.endswith("liv1"):
+                jv_light_rev_path = file.replace("liv1", "liv2")
+            elif file.endswith("liv2"):
+                jv_light_rev_path = file.replace("liv2", "liv1")
+
+        with contextlib.suppress(OSError, NameError):
+            jv_light_rev_data = np.genfromtxt(
+                jv_light_rev_path,
+                delimiter="\t",
+                skip_header=1,
+                skip_footer=NUM_COLS,
+                usecols=(2, 4),
+            )
+            jv_light_fwd_data = np.genfromtxt(
+                jv_light_fwd_path,
+                delimiter="\t",
+                skip_header=1,
+                skip_footer=NUM_COLS,
+                usecols=(2, 4),
+            )
+            jv_dark_rev_data = np.genfromtxt(
+                jv_light_rev_path.replace("liv", "div"),
+                delimiter="\t",
+                skip_header=1,
+                skip_footer=NUM_COLS,
+                usecols=(2, 4),
+            )
+            jv_dark_fwd_data = np.genfromtxt(
+                jv_light_fwd_path.replace("liv", "div"),
+                delimiter="\t",
+                skip_header=1,
+                skip_footer=NUM_COLS,
+                usecols=(2, 4),
+            )
+
+            jv_light_rev_data = jv_light_rev_data[
+                ~np.isnan(jv_light_rev_data).any(axis=1)
+            ]
+            jv_light_fwd_data = jv_light_fwd_data[
+                ~np.isnan(jv_light_fwd_data).any(axis=1)
+            ]
+
+            jv_dark_rev_data = jv_dark_rev_data[~np.isnan(jv_dark_rev_data).any(axis=1)]
+            jv_dark_fwd_data = jv_dark_fwd_data[~np.isnan(jv_dark_fwd_data).any(axis=1)]
+
+            # plot light J-V curves
+            ax1.plot(
+                jv_light_rev_data[:, 0],
+                jv_light_rev_data[:, 1],
+                label="rev",
+                c="red",
+                lw=2.0,
+            )
+            ax1.plot(
+                jv_light_fwd_data[:, 0],
+                jv_light_fwd_data[:, 1],
+                label="fwd",
+                c="black",
+                lw=2.0,
+            )
+
+            # find y-limits for plotting
+            fwd_j = []
+            rev_j = []
+            if (jsc_signs[index] > 0) & (voc_signs[index] > 0):
+                fwd_j.append(jv_light_rev_data[-1, 1])
+                rev_j.append(jv_light_rev_data[0, 1])
+                fwd_j.append(jv_light_fwd_data[0, 1])
+                rev_j.append(jv_light_fwd_data[-1, 1])
+            elif (jsc_signs[index] > 0) & (voc_signs[index] < 0):
+                fwd_j.append(jv_light_rev_data[0, 1])
+                rev_j.append(jv_light_rev_data[-1, 1])
+                fwd_j.append(jv_light_fwd_data[-1, 1])
+                rev_j.append(jv_light_fwd_data[0, 1])
+            elif (jsc_signs[index] < 0) & (voc_signs[index] > 0):
+                fwd_j.append(jv_light_rev_data[-1, 1])
+                rev_j.append(jv_light_rev_data[0, 1])
+                fwd_j.append(jv_light_fwd_data[0, 1])
+                rev_j.append(jv_light_fwd_data[-1, 1])
+            elif (jsc_signs[index] < 0) & (voc_signs[index] < 0):
+                fwd_j.append(jv_light_rev_data[0, 1])
+                rev_j.append(jv_light_rev_data[-1, 1])
+                fwd_j.append(jv_light_fwd_data[-1, 1])
+                rev_j.append(jv_light_fwd_data[0, 1])
+
+            ax1.plot(
+                jv_dark_rev_data[:, 0],
+                jv_dark_rev_data[:, 1],
+                label="rev",
+                c="orange",
+                lw=2.0,
+            )
+            ax1.plot(
+                jv_dark_fwd_data[:, 0],
+                jv_dark_fwd_data[:, 1],
+                label="fwd",
+                c="blue",
+                lw=2.0,
+            )
+
+            # Format the axes
+            ax1.tick_params(direction="in", top=True, right=True, labelsize="small")
+            ax1.set_xlabel("Applied bias (V)", fontsize="small")
+            ax1.set_ylabel("J (mA/cm^2)", fontsize="small")
+            ax1.legend(loc="best")
+
+            # Format the figure layout, save to file, and add to ppt
+            image_png = os.path.join(
+                image_folder, f"jv_best_{variables[index]}_{variables[index]}.png"
+            )
+            image_svg = os.path.join(
+                image_folder, f"jv_best_{variables[index]}_{variables[index]}.svg"
+            )
+            fig.tight_layout()
+            fig.savefig(image_png)
+            fig.savefig(image_svg)
+            data_slide.shapes.add_picture(
+                image_png,
+                left=LEFTS[str(index % 4)],
+                top=TOPS[str(index % 4)],
+                height=IMAGE_HEIGHT,
+            )
+
+            # Close figure
+            plt.close(fig)
+
+
+def plot_all_jvs(all_jv_groups):
+    """Plot all JV curves.
+
+    Parameters
+    ----------
+    all_jv_groups : pandas.GroupBy
+        all jv scans grouped by pixel number
+    """
+    # get parameters for plot formatting
+    c_div = 1 / 4
+
+    # Create figures, save images and add them to powerpoint slide
+    for index, (_, group) in enumerate(all_jv_groups):
+        # Create a new slide after every four graphs are produced
+        if index % 4 == 0:
+            data_slide = title_image_slide(prs, f"All JV scans, page {int(index / 4)}")
+
+        label = group["label"].unique()[0]
+        pixel = group["pixel"].unique()[0]
+        variable = group["variable"].unique()[0]
+        value = group["value"].unique()[0]
+
+        fig, ax1 = plt.subplots(1, 1, figsize=(A4_WIDTH / 2, A4_HEIGHT / 2), dpi=300)
+        ax1.axhline(0, lw=0.5, c="black")
+        ax1.axvline(0, lw=0.5, c="black")
+        ax1.set_title(
+            f"{label}, {variable}, {value}, pixel {pixel}",
+            fontdict={"fontsize": "small"},
+        )
+
+        jsc_signs, jsc_counts = np.unique(np.sign(group["jmpp"]), return_counts=True)
+        voc_signs, voc_counts = np.unique(np.sign(group["voc"]), return_counts=True)
+        if len(jsc_signs) == 1:
+            jsc_sign = jsc_signs[0]
+        else:
+            max_ix = np.argmax(jsc_counts)
+            jsc_sign = jsc_signs[max_ix]
+        if len(voc_signs) == 1:
+            voc_sign = voc_signs[0]
+        else:
+            max_ix = np.argmax(voc_counts)
+            voc_sign = voc_signs[max_ix]
+
+        # load data for each pixel and plot on axes
+        fwd_j = []
+        rev_j = []
+        for file, scan_dir, scannumber, intensity in zip(
+            group["relativepath"],
+            group["scandirection"],
+            group["scannumber"],
+            group["intensity"],
+        ):
+            if scan_dir == "rev":
+                data_rev = np.genfromtxt(
+                    file,
+                    delimiter="\t",
+                    skip_header=1,
+                    skip_footer=NUM_COLS,
+                    usecols=(2, 4),
+                )
+                data_rev = data_rev[~np.isnan(data_rev).any(axis=1)]
+                if intensity == 0:
+                    ax1.plot(
+                        data_rev[:, 0],
+                        data_rev[:, 1],
+                        label=f"{scannumber} {scan_dir} dark",
+                        c="black",
+                        lw=1.5,
+                        ls="--",
+                    )
+                else:
+                    ax1.plot(
+                        data_rev[:, 0],
+                        data_rev[:, 1],
+                        label=f"{scannumber} {scan_dir}",
+                        c=cmap(scannumber * c_div),
+                        lw=1.5,
+                        ls="--",
+                    )
+                if (
+                    (jsc_sign > 0) & (voc_sign > 0)
+                    or not (jsc_sign > 0) & (voc_sign < 0)
+                    and (jsc_sign < 0) & (voc_sign > 0)
+                ):
+                    fwd_j.append(data_rev[-1, 1])
+                    rev_j.append(data_rev[0, 1])
+                elif (jsc_sign > 0) & (voc_sign < 0) or (jsc_sign < 0) & (voc_sign < 0):
+                    fwd_j.append(data_rev[0, 1])
+                    rev_j.append(data_rev[-1, 1])
+            elif scan_dir == "fwd":
+                data_fwd = np.genfromtxt(
+                    file,
+                    delimiter="\t",
+                    skip_header=1,
+                    skip_footer=NUM_COLS,
+                    usecols=(2, 4),
+                )
+                data_fwd = data_fwd[~np.isnan(data_fwd).any(axis=1)]
+                if intensity == 0:
+                    ax1.plot(
+                        data_fwd[:, 0],
+                        data_fwd[:, 1],
+                        label=f"{scannumber} {scan_dir} dark",
+                        c="black",
+                        lw=1.5,
+                    )
+                else:
+                    ax1.plot(
+                        data_fwd[:, 0],
+                        data_fwd[:, 1],
+                        label=f"{scannumber} {scan_dir}",
+                        c=cmap(scannumber * c_div),
+                        lw=1.5,
+                    )
+                if (
+                    (jsc_sign > 0) & (voc_sign > 0)
+                    or not (jsc_sign > 0) & (voc_sign < 0)
+                    and (jsc_sign < 0) & (voc_sign > 0)
+                ):
+                    fwd_j.append(data_fwd[0, 1])
+                    rev_j.append(data_fwd[-1, 1])
+                elif (jsc_sign > 0) & (voc_sign < 0) or (jsc_sign < 0) & (voc_sign < 0):
+                    fwd_j.append(data_fwd[-1, 1])
+                    rev_j.append(data_fwd[0, 1])
+
+        # Format the axes
+        ax1.tick_params(direction="in", top=True, right=True, labelsize="small")
+        ax1.set_xlabel("Applied bias (V)", fontsize="small")
+        ax1.set_ylabel("J (mA/cm^2)", fontsize="small")
+
+        # Adjust plot width to add legend outside plot area
+        box = ax1.get_position()
+        ax1.set_position([box.x0, box.y0, box.width * 0.85, box.height])
+        legend_handles, legend_labels = ax1.get_legend_handles_labels()
+        lgd = ax1.legend(
+            legend_handles,
+            legend_labels,
+            loc="upper left",
+            title="scannumber #",
+            bbox_to_anchor=(1, 1),
+            fontsize="small",
+        )
+
+        # Format the figure layout, save to file, and add to ppt
+        image_png = os.path.join(image_folder, f"jv_all_{label}.png")
+        image_svg = os.path.join(image_folder, f"jv_all_{label}.svg")
+        fig.savefig(image_png, bbox_extra_artists=(lgd,), bbox_inches="tight")
+        fig.savefig(image_svg, bbox_extra_artists=(lgd,), bbox_inches="tight")
+        data_slide.shapes.add_picture(
+            image_png,
+            left=LEFTS[str(index % 4)],
+            top=TOPS[str(index % 4)],
+            height=IMAGE_HEIGHT,
+        )
+
+        # Close figure
+        plt.close(fig)
 
 
 # parse args
@@ -587,10 +1081,7 @@ args = parse()
 # create a logger
 logger = create_logger(args.folder, args.debug)
 
-if args.fix_ymin_0 == "yes":
-    fix_ymin_0 = True
-else:
-    fix_ymin_0 = False
+FIX_YMIN_0 = True if args.fix_ymin_0 == "yes" else False
 
 # format data if from Python program
 (
@@ -638,23 +1129,23 @@ T = 300
 
 # Read in data from JV log file
 logger.info("Loading log file...")
-data = pd.read_csv(log_filepath, delimiter="\t", header=0)
+all_data = pd.read_csv(log_filepath, delimiter="\t", header=0)
 
 # format header names so they can be read as attributes
 names = []
-for name in data.columns:
+for name in all_data.columns:
     ix = name.find("(")
     if ix != -1:
         # ignore everything from the first parenthesis
         name = name[:ix]
     # remove all special characters
     name = name.lower().translate(
-        {ord(c): "" for c in "!@#$%^&*()[]{};:,./<>?\|`~-=_+ "}
+        {ord(c): "" for c in r"!@#$%^&*()[]{};:,./<>?\|`~-=_+ "}
     )
     names.append(name)
-data.columns = names
+all_data.columns = names
 
-num_cols = len(data.columns)
+NUM_COLS = len(all_data.columns)
 
 
 # Create a powerpoint presentation to add figures to.
@@ -671,15 +1162,17 @@ subtitle.text = f"{exp_date}\n{username}"
 
 # Add blank slide for table of experimental details.
 blank_slide_layout = prs.slide_layouts[6]
-slide = prs.slides.add_slide(blank_slide_layout)
-shapes = slide.shapes
-rows = len(data["label"].unique()) + 1
-cols = 6
-left = Inches(0.15)
-top = Inches(0.02)
-width = prs.slide_width - Inches(0.25)
-height = prs.slide_height - Inches(0.05)
-table = shapes.add_table(rows, cols, left, top, width, height).table
+table_slide = prs.slides.add_slide(blank_slide_layout)
+table_shapes = table_slide.shapes
+table_rows = len(all_data["label"].unique()) + 1
+table_cols = 6
+table_left = Inches(0.15)
+table_top = Inches(0.02)
+table_width = prs.slide_width - Inches(0.25)
+table_height = prs.slide_height - Inches(0.05)
+table = table_shapes.add_table(
+    table_rows, table_cols, table_left, table_top, table_width, table_height
+).table
 
 # set column widths
 table.columns[0].width = Inches(0.8)
@@ -698,23 +1191,23 @@ table.cell(0, 4).text = "ETM"
 table.cell(0, 5).text = "metal"
 
 # Define dimensions used for adding images to slides
-A4_height = 7.5
-A4_width = 10
-height = prs.slide_height * 0.95 / 2
-width = prs.slide_width * 0.95 / 2
+A4_HEIGHT = 7.5
+A4_WIDTH = 10
+IMAGE_HEIGHT = prs.slide_height * 0.95 / 2
+IMAGE_WIDTH = prs.slide_width * 0.95 / 2
 
 # Create dictionaries that define where to put images on slides in the ppt
-lefts = {
+LEFTS = {
     "0": Inches(0),
-    "1": prs.slide_width - width,
+    "1": prs.slide_width - IMAGE_WIDTH,
     "2": Inches(0),
-    "3": prs.slide_width - width,
+    "3": prs.slide_width - IMAGE_WIDTH,
 }
-tops = {
+TOPS = {
     "0": prs.slide_height * 0.05,
     "1": prs.slide_height * 0.05,
-    "2": prs.slide_height - height,
-    "3": prs.slide_height - height,
+    "2": prs.slide_height - IMAGE_HEIGHT,
+    "3": prs.slide_height - IMAGE_HEIGHT,
 }
 
 
@@ -722,34 +1215,36 @@ tops = {
 logger.info("Sorting and filtering data...")
 
 # filter out pixels that yield a non-physical quasi-FF or Jss from analysis
-filter_groups = data.groupby(["label", "pixel"])
-data = filter_groups.filter(
+filter_groups = all_data.groupby(["label", "pixel"])
+filtered_data_by_ss = filter_groups.filter(
     lambda x: all((x["quasiff"] >= 0) & (x["quasiff"] <= 1) & (x["jss"] < 50))
 )
 
-sorted_data = data.sort_values(["label", "pixel", "pce"], ascending=[True, True, False])
+sorted_data = filtered_data_by_ss.sort_values(
+    ["label", "pixel", "pce"], ascending=[True, True, False]
+)
 
 # Fill in label column of device info table in ppt
 table_info = sorted_data.drop_duplicates(["label"])
-i = 1
-for ix, row in table_info.iterrows():
-    table.cell(i, 0).text = f"{row.label}"
-    table.cell(i, 1).text = f"{row.substrate}"
-    table.cell(i, 2).text = f"{row.htm}"
-    table.cell(i, 3).text = f"{row.perovskite}"
-    table.cell(i, 4).text = f"{row.etm}"
-    table.cell(i, 5).text = f"{row.metal}"
-    i += 1
+for table_row, (_, row) in enumerate(table_info.iterrows()):
+    table_row += 1
+    table.cell(table_row, 0).text = f"{row.label}"
+    table.cell(table_row, 1).text = f"{row.substrate}"
+    table.cell(table_row, 2).text = f"{row.htm}"
+    table.cell(table_row, 3).text = f"{row.perovskite}"
+    table.cell(table_row, 4).text = f"{row.etm}"
+    table.cell(table_row, 5).text = f"{row.metal}"
 
-# Filter data
+
+# further filter data based on jv scans
 filtered_data = sorted_data[
     (sorted_data.intensity > 0)
     & (sorted_data.ff > 0)
     & (sorted_data.ff < 1)
     & (np.absolute(sorted_data.jsc) > 0.01)
-    & (type(sorted_data.jsc) is not str)
-    & (type(sorted_data.voc) is not str)
-    & (type(sorted_data.ff) is not str)
+    & (not isinstance(sorted_data.jsc, str))
+    & (not isinstance(sorted_data.voc, str))
+    & (not isinstance(sorted_data.ff, str))
 ]
 filtered_data_fwd = filtered_data[filtered_data.scandirection == "fwd"]
 filtered_data_rev = filtered_data[filtered_data.scandirection == "rev"]
@@ -778,14 +1273,18 @@ filtered_data_rev = filtered_data_rev.merge(
     filtered_data_rev_t, on=["label", "pixel"], how="inner"
 )
 
-spo_data = data[(np.absolute(sorted_data.vss) > 0) & (np.absolute(sorted_data.jss) > 0)]
-sjsc_data = data[
+spo_data = filtered_data_by_ss[
+    (np.absolute(sorted_data.vss) > 0) & (np.absolute(sorted_data.jss) > 0)
+]
+sjsc_data = filtered_data_by_ss[
     (sorted_data.vss == 0)
     & (np.absolute(sorted_data.jss) > 0)
     & (sorted_data.quasiff < 0.9)
     & (sorted_data.quasiff > 0.1)
 ]
-svoc_data = data[(np.absolute(sorted_data.vss) > 0) & (sorted_data.jss == 0)]
+svoc_data = filtered_data_by_ss[
+    (np.absolute(sorted_data.vss) > 0) & (sorted_data.jss == 0)
+]
 
 
 logger.info("Plotting spectra...")
@@ -803,21 +1302,32 @@ sjsc_params = ["jss", "quasiff"]
 svoc_params = ["vss"]
 
 # create boxplots for jv and ss parameters grouped by label
+boxplot_index = 0
 if not svoc_data.empty:
-    i, data_slide = plot_boxplots(svoc_data, svoc_params, "SSVoc", "label")
+    boxplot_index, data_slide = plot_boxplots(svoc_data, svoc_params, "SSVoc", "label")
     plt.close("all")
 if not sjsc_data.empty:
-    i, data_slide = plot_boxplots(
-        sjsc_data, sjsc_params, "SSJsc", "label", i=i, data_slide=data_slide
+    boxplot_index, data_slide = plot_boxplots(
+        sjsc_data,
+        sjsc_params,
+        "SSJsc",
+        "label",
+        start_index=boxplot_index,
+        data_slide=data_slide,
     )
     plt.close("all")
 if not spo_data.empty:
-    i, data_slide = plot_boxplots(
-        spo_data, spo_params, "SSPO", "label", i=i, data_slide=data_slide
+    boxplot_index, data_slide = plot_boxplots(
+        spo_data,
+        spo_params,
+        "SSPO",
+        "label",
+        start_index=boxplot_index,
+        data_slide=data_slide,
     )
     plt.close("all")
 if not filtered_data.empty:
-    i, data_slide = plot_boxplots(filtered_data, jv_params, "J-V", "label")
+    boxplot_index, data_slide = plot_boxplots(filtered_data, jv_params, "J-V", "label")
     plt.close("all")
 
 # create boxplots for jv and spo parameters grouped by variable value
@@ -825,36 +1335,51 @@ grouped_filtered_data = filtered_data.groupby(["variable"])
 grouped_spo_data = spo_data.groupby(["variable"])
 grouped_sjsc_data = sjsc_data.groupby(["variable"])
 grouped_svoc_data = svoc_data.groupby(["variable"])
-for name, group in grouped_svoc_data:
-    i, data_slide = plot_boxplots(group, svoc_params, "SSVoc", "value", name)
-    plt.close("all")
-for name, group in grouped_sjsc_data:
-    i, data_slide = plot_boxplots(
-        group, sjsc_params, "SSJsc", "value", name, i=i, data_slide=data_slide
+for svoc_name, svoc_group in grouped_svoc_data:
+    boxplot_index, data_slide = plot_boxplots(
+        svoc_group, svoc_params, "SSVoc", "value", svoc_name
     )
     plt.close("all")
-for name, group in grouped_spo_data:
-    i, data_slide = plot_boxplots(
-        group, spo_params, "SSPO", "value", name, i=i, data_slide=data_slide
+for sjsc_name, sjsc_group in grouped_sjsc_data:
+    boxplot_index, data_slide = plot_boxplots(
+        sjsc_group,
+        sjsc_params,
+        "SSJsc",
+        "value",
+        sjsc_name,
+        start_index=boxplot_index,
+        data_slide=data_slide,
     )
     plt.close("all")
-for name, group in grouped_filtered_data:
-    i, data_slide = plot_boxplots(group, jv_params, "J-V", "value", name)
+for spo_name, spo_group in grouped_spo_data:
+    boxplot_index, data_slide = plot_boxplots(
+        spo_group,
+        spo_params,
+        "SSPO",
+        "value",
+        spo_name,
+        start_index=boxplot_index,
+        data_slide=data_slide,
+    )
+    plt.close("all")
+for jv_name, jv_group in grouped_filtered_data:
+    boxplot_index, data_slide = plot_boxplots(
+        jv_group, jv_params, "J-V", "value", jv_name
+    )
     plt.close("all")
 
 # create countplot for yields grouped by label
-ix = 0
-data_slide = title_image_slide(prs, f"Yields, page {int(ix / 4)}")
-plot_countplots(filtered_data, ix, "label", data_slide)
+data_slide = title_image_slide(prs, "Yields, page 0")
+plot_countplots(filtered_data, 0, "label", data_slide)
 
 # create countplot for yields grouped by variable value
-ix = 1
-for name, group in grouped_filtered_data:
+for yield_index, (yield_name, yield_group) in enumerate(grouped_filtered_data):
+    yield_index += 1
     # create new slide if necessary
-    if ix % 4 == 0:
-        data_slide = title_image_slide(prs, f"Yields, page {int(ix / 4)}")
-    plot_countplots(filtered_data, ix, "value", data_slide, name)
-    ix += 1
+    if yield_index % 4 == 0:
+        data_slide = title_image_slide(prs, f"Yields, page {int(yield_index / 4)}")
+    plot_countplots(filtered_data, yield_index, "value", data_slide, yield_name)
+    yield_index += 1
 
 
 # plot steady-state data
@@ -869,151 +1394,10 @@ logger.info("Plotting JV curves...")
 re_sort_data = filtered_data.sort_values(["label", "pixel"], ascending=[True, True])
 grouped_by_label = re_sort_data.groupby("label")
 
-# Define a colormap for JV plots
-cmap = plt.cm.get_cmap("viridis")
-
 # Create lists of varibales, values, and labels for labelling figures
 substrates = re_sort_data.drop_duplicates(["label"])
-variables = list(substrates["variable"])
-values = list(substrates["value"])
-labels = list(substrates["label"])
 
-# Create figures, save images and add them to powerpoint slide
-i = 0
-for name, group in grouped_by_label:
-    # Create a new slide after every four graphs are produced
-    if i % 4 == 0:
-        data_slide = title_image_slide(
-            prs, f"Best JV scans of every working pixel, page {int(i / 4)}"
-        )
-
-    # Create figure, axes, y=0 line, and title
-    fig = plt.figure(figsize=(A4_width / 2, A4_height / 2), dpi=300)
-    ax = fig.add_subplot(1, 1, 1)
-    ax.axhline(0, lw=0.5, c="black")
-    ax.axvline(0, lw=0.5, c="black")
-    ax.set_title(
-        f"{labels[i]}, {variables[i]}, {values[i]}", fontdict={"fontsize": "small"}
-    )
-
-    # get parameters for plot formatting
-    c_div = 1 / 8
-    pixels = list(group["pixel"].astype(int))
-    max_group_jsc = np.max(np.absolute(group["jsc"]))
-    max_group_jmp = np.max(np.absolute(group["jmpp"]))
-    max_group_voc = np.max(np.absolute(group["voc"]))
-
-    # find signs of jsc and voc to determine max and min axis limits
-    jsc_signs, jsc_counts = np.unique(np.sign(group["jmpp"]), return_counts=True)
-    voc_signs, voc_counts = np.unique(np.sign(group["voc"]), return_counts=True)
-    if len(jsc_signs) == 1:
-        jsc_sign = jsc_signs[0]
-    else:
-        ix = np.argmax(jsc_counts)
-        jsc_sign = jsc_signs[ix]
-    if len(voc_signs) == 1:
-        voc_sign = voc_signs[0]
-    else:
-        ix = np.argmax(voc_counts)
-        voc_sign = voc_signs[ix]
-
-    # load data for each pixel and plot on axes
-    fwd_j = []
-    rev_j = []
-    j = 0
-    for file, scan_dir in zip(group["relativepath"], group["scandirection"]):
-        if scan_dir == "rev":
-            data_rev = np.genfromtxt(
-                file,
-                delimiter="\t",
-                skip_header=1,
-                skip_footer=num_cols,
-                usecols=(2, 4),
-            )
-            data_rev = data_rev[~np.isnan(data_rev).any(axis=1)]
-            ax.plot(
-                data_rev[:, 0],
-                data_rev[:, 1],
-                label=pixels[j],
-                c=cmap(pixels[j] * c_div),
-                lw=2.0,
-            )
-            if (jsc_sign > 0) & (voc_sign > 0):
-                fwd_j.append(data_rev[-1, 1])
-                rev_j.append(data_rev[0, 1])
-            elif (jsc_sign > 0) & (voc_sign < 0):
-                fwd_j.append(data_rev[0, 1])
-                rev_j.append(data_rev[-1, 1])
-            elif (jsc_sign < 0) & (voc_sign > 0):
-                fwd_j.append(data_rev[-1, 1])
-                rev_j.append(data_rev[0, 1])
-            elif (jsc_sign < 0) & (voc_sign < 0):
-                fwd_j.append(data_rev[0, 1])
-                rev_j.append(data_rev[-1, 1])
-        elif scan_dir == "fwd":
-            data_fwd = np.genfromtxt(
-                file,
-                delimiter="\t",
-                skip_header=1,
-                skip_footer=num_cols,
-                usecols=(2, 4),
-            )
-            data_fwd = data_fwd[~np.isnan(data_fwd).any(axis=1)]
-            ax.plot(data_fwd[:, 0], data_fwd[:, 1], c=cmap(pixels[j] * c_div), lw=2.0)
-            if (jsc_sign > 0) & (voc_sign > 0):
-                fwd_j.append(data_fwd[0, 1])
-                rev_j.append(data_fwd[-1, 1])
-            elif (jsc_sign > 0) & (voc_sign < 0):
-                fwd_j.append(data_fwd[-1, 1])
-                rev_j.append(data_fwd[0, 1])
-            elif (jsc_sign < 0) & (voc_sign > 0):
-                fwd_j.append(data_fwd[0, 1])
-                rev_j.append(data_fwd[-1, 1])
-            elif (jsc_sign < 0) & (voc_sign < 0):
-                fwd_j.append(data_fwd[-1, 1])
-                rev_j.append(data_fwd[0, 1])
-
-        j += 1
-
-    # Format the axes
-    ax.tick_params(direction="in", top=True, right=True, labelsize="small")
-    ax.set_xlabel("Applied bias (V)", fontsize="small")
-    ax.set_ylabel("J (mA/cm^2)", fontsize="small")
-    # if voc_sign > 0:
-    #     ax.set_xlim([np.min(data_fwd[:, 0]), max_group_voc + 0.2])
-    # else:
-    #     ax.set_xlim([-max_group_voc - 0.2, np.max(data_fwd[:, 0])])
-    # if jsc_sign > 0:
-    #     ax.set_ylim([-np.max(np.absolute(rev_j)), max_group_jsc * 1.2])
-    # else:
-    #     ax.set_ylim([-max_group_jsc * 1.2, np.max(np.absolute(rev_j))])
-
-    # Adjust plot width to add legend outside plot area
-    box = ax.get_position()
-    ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
-    legend_handles, legend_labels = ax.get_legend_handles_labels()
-    lgd = ax.legend(
-        legend_handles,
-        legend_labels,
-        loc="upper left",
-        bbox_to_anchor=(1, 1),
-        title="pixel #",
-        fontsize="small",
-    )
-
-    # Format the figure layout, save to file, and add to ppt
-    image_png = os.path.join(image_folder, f"jv_all_{labels[i]}.png")
-    image_svg = os.path.join(image_folder, f"jv_all_{labels[i]}.svg")
-    fig.savefig(image_png, bbox_extra_artists=(lgd,), bbox_inches="tight")
-    fig.savefig(image_svg, bbox_extra_artists=(lgd,), bbox_inches="tight")
-    data_slide.shapes.add_picture(
-        image_png, left=lefts[str(i % 4)], top=tops[str(i % 4)], height=height
-    )
-
-    # Close figure
-    plt.close(fig)
-
-    i += 1
+plot_best_jvs_by_label(grouped_by_label, substrates)
 
 # filter dataframe to leave only the best pixel for each variable value
 sort_best_pixels = filtered_data.sort_values(
@@ -1021,183 +1405,10 @@ sort_best_pixels = filtered_data.sort_values(
 )
 best_pixels = sort_best_pixels.drop_duplicates(["variable", "value"])
 
-# get parameters for defining position of figures in subplot, attempting to
-# make it as square as possible
-no_of_subplots = len(best_pixels["path"])
-subplot_rows = np.ceil(no_of_subplots**0.5)
-subplot_cols = np.ceil(no_of_subplots / subplot_rows)
+plot_best_jvs_by_variable_value(best_pixels)
 
-# create lists of varibales and values for labelling figures
-variables = list(best_pixels["variable"])
-values = list(best_pixels["value"])
-labels = list(best_pixels["label"])
-jscs = list(best_pixels["jsc"])
-jmps = list(np.absolute(best_pixels["jmpp"]))
-vocs = list(np.absolute(best_pixels["voc"]))
-jsc_signs = list(np.sign(best_pixels["jmpp"]))
-voc_signs = list(np.sign(best_pixels["voc"]))
 
-# Loop for iterating through best pixels dataframe and picking out JV data
-# files. Each plot contains forward and reverse sweeps, both light and dark.
-i = 0
-for file, scan_dir in zip(best_pixels["relativepath"], best_pixels["scandirection"]):
-    # Create a new slide after every four graphs are produced
-    if i % 4 == 0:
-        data_slide = title_image_slide(prs, f"Best pixel JVs, page {int(i / 4)}")
-
-    # Create figure, axes, y=0 line, and title
-    fig = plt.figure(figsize=(A4_width / 2, A4_height / 2), dpi=300)
-    ax = fig.add_subplot(1, 1, 1)
-    ax.axhline(0, lw=0.5, c="black")
-    ax.axvline(0, lw=0.5, c="black")
-    ax.set_title(
-        f"{variables[i]}, {values[i]}, {labels[i]}", fontdict={"fontsize": "small"}
-    )
-
-    # Import data for each pixel and plot on axes, ignoring errors. If
-    # data in a file can't be plotted just ignore it.
-    if scan_dir == "rev":
-        JV_light_rev_path = file
-        if file.endswith("liv1"):
-            JV_light_fwd_path = file.replace("liv1", "liv2")
-        elif file.endswith("liv2"):
-            JV_light_fwd_path = file.replace("liv2", "liv1")
-    elif scan_dir == "fwd":
-        JV_light_fwd_path = file
-        if file.endswith("liv1"):
-            JV_light_rev_path = file.replace("liv1", "liv2")
-        elif file.endswith("liv2"):
-            JV_light_rev_path = file.replace("liv2", "liv1")
-
-    try:
-        JV_light_rev_data = np.genfromtxt(
-            JV_light_rev_path,
-            delimiter="\t",
-            skip_header=1,
-            skip_footer=num_cols,
-            usecols=(2, 4),
-        )
-        JV_light_fwd_data = np.genfromtxt(
-            JV_light_fwd_path,
-            delimiter="\t",
-            skip_header=1,
-            skip_footer=num_cols,
-            usecols=(2, 4),
-        )
-        JV_dark_rev_data = np.genfromtxt(
-            JV_light_rev_path.replace("liv", "div"),
-            delimiter="\t",
-            skip_header=1,
-            skip_footer=num_cols,
-            usecols=(2, 4),
-        )
-        JV_dark_fwd_data = np.genfromtxt(
-            JV_light_fwd_path.replace("liv", "div"),
-            delimiter="\t",
-            skip_header=1,
-            skip_footer=num_cols,
-            usecols=(2, 4),
-        )
-
-        JV_light_rev_data = JV_light_rev_data[~np.isnan(JV_light_rev_data).any(axis=1)]
-        JV_light_fwd_data = JV_light_fwd_data[~np.isnan(JV_light_fwd_data).any(axis=1)]
-
-        JV_dark_rev_data = JV_dark_rev_data[~np.isnan(JV_dark_rev_data).any(axis=1)]
-        JV_dark_fwd_data = JV_dark_fwd_data[~np.isnan(JV_dark_fwd_data).any(axis=1)]
-
-        # plot light J-V curves
-        ax.plot(
-            JV_light_rev_data[:, 0],
-            JV_light_rev_data[:, 1],
-            label="rev",
-            c="red",
-            lw=2.0,
-        )
-        ax.plot(
-            JV_light_fwd_data[:, 0],
-            JV_light_fwd_data[:, 1],
-            label="fwd",
-            c="black",
-            lw=2.0,
-        )
-
-        # find y-limits for plotting
-        fwd_j = []
-        rev_j = []
-        if (jsc_signs[i] > 0) & (voc_signs[i] > 0):
-            fwd_j.append(JV_light_rev_data[-1, 1])
-            rev_j.append(JV_light_rev_data[0, 1])
-            fwd_j.append(JV_light_fwd_data[0, 1])
-            rev_j.append(JV_light_fwd_data[-1, 1])
-        elif (jsc_signs[i] > 0) & (voc_signs[i] < 0):
-            fwd_j.append(JV_light_rev_data[0, 1])
-            rev_j.append(JV_light_rev_data[-1, 1])
-            fwd_j.append(JV_light_fwd_data[-1, 1])
-            rev_j.append(JV_light_fwd_data[0, 1])
-        elif (jsc_signs[i] < 0) & (voc_signs[i] > 0):
-            fwd_j.append(JV_light_rev_data[-1, 1])
-            rev_j.append(JV_light_rev_data[0, 1])
-            fwd_j.append(JV_light_fwd_data[0, 1])
-            rev_j.append(JV_light_fwd_data[-1, 1])
-        elif (jsc_signs[i] < 0) & (voc_signs[i] < 0):
-            fwd_j.append(JV_light_rev_data[0, 1])
-            rev_j.append(JV_light_rev_data[-1, 1])
-            fwd_j.append(JV_light_fwd_data[-1, 1])
-            rev_j.append(JV_light_fwd_data[0, 1])
-
-        ax.plot(
-            JV_dark_rev_data[:, 0],
-            JV_dark_rev_data[:, 1],
-            label="rev",
-            c="orange",
-            lw=2.0,
-        )
-        ax.plot(
-            JV_dark_fwd_data[:, 0],
-            JV_dark_fwd_data[:, 1],
-            label="fwd",
-            c="blue",
-            lw=2.0,
-        )
-
-        # Format the axes
-        ax.tick_params(direction="in", top=True, right=True, labelsize="small")
-        ax.set_xlabel("Applied bias (V)", fontsize="small")
-        ax.set_ylabel("J (mA/cm^2)", fontsize="small")
-        # if voc_signs[i] > 0:
-        #     ax.set_xlim([np.min(JV_light_fwd_data[:, 0]), vocs[i] + 0.1])
-        # else:
-        #     ax.set_xlim([-vocs[i] - 0.1, np.max(JV_light_fwd_data[:, 0])])
-
-        # if jsc_signs[i] > 0:
-        #     ax.set_ylim([-np.max(np.absolute(rev_j)), jscs[i] * 1.2])
-        # else:
-        #     ax.set_ylim([-jscs[i] * 1.2, np.max(np.absolute(rev_j))])
-
-        ax.legend(loc="best")
-
-        # Format the figure layout, save to file, and add to ppt
-        image_png = os.path.join(
-            image_folder, f"jv_best_{variables[i]}_{variables[i]}.png"
-        )
-        image_svg = os.path.join(
-            image_folder, f"jv_best_{variables[i]}_{variables[i]}.svg"
-        )
-        fig.tight_layout()
-        fig.savefig(image_png)
-        fig.savefig(image_svg)
-        data_slide.shapes.add_picture(
-            image_png, left=lefts[str(i % 4)], top=tops[str(i % 4)], height=height
-        )
-
-        # Close figure
-        plt.close(fig)
-    except (OSError, NameError):
-        pass
-
-    i += 1
-
-all_jvs_sorted = data.sort_values(
+all_jvs_sorted = filtered_data_by_ss.sort_values(
     ["label", "intensity", "pixel", "scannumber"], ascending=[True, False, True, True]
 )
 all_jvs_groups = all_jvs_sorted[
@@ -1207,178 +1418,10 @@ all_jvs_groups = all_jvs_sorted[
     & (all_jvs_sorted.ff != 0)
 ].groupby(["label", "pixel"])
 
-# Create figures, save images and add them to powerpoint slide
-i = 0
-for name, group in all_jvs_groups:
-    # Create a new slide after every four graphs are produced
-    if i % 4 == 0:
-        data_slide = title_image_slide(prs, f"All JV scans, page {int(i / 4)}")
-
-    label = group["label"].unique()[0]
-    pixel = group["pixel"].unique()[0]
-    variable = group["variable"].unique()[0]
-    value = group["value"].unique()[0]
-
-    fig = plt.figure(figsize=(A4_width / 2, A4_height / 2), dpi=300)
-    ax = fig.add_subplot(1, 1, 1)
-    ax.axhline(0, lw=0.5, c="black")
-    ax.axvline(0, lw=0.5, c="black")
-    ax.set_title(
-        f"{label}, {variable}, {value}, pixel {pixel}", fontdict={"fontsize": "small"}
-    )
-
-    # get parameters for plot formatting
-    c_div = 1 / 4
-    scans = group["scannumber"].max() + 1
-    max_group_jsc = np.max(np.absolute(group["jsc"]))
-    max_group_jmp = np.max(np.absolute(group["jmpp"]))
-    max_group_voc = np.max(np.absolute(group["voc"]))
-
-    jsc_signs, jsc_counts = np.unique(np.sign(group["jmpp"]), return_counts=True)
-    voc_signs, voc_counts = np.unique(np.sign(group["voc"]), return_counts=True)
-    if len(jsc_signs) == 1:
-        jsc_sign = jsc_signs[0]
-    else:
-        ix = np.argmax(jsc_counts)
-        jsc_sign = jsc_signs[ix]
-    if len(voc_signs) == 1:
-        voc_sign = voc_signs[0]
-    else:
-        ix = np.argmax(voc_counts)
-        voc_sign = voc_signs[ix]
-
-    # load data for each pixel and plot on axes
-    fwd_j = []
-    rev_j = []
-    j = 0
-    for file, scan_dir, scannumber, intensity in zip(
-        group["relativepath"],
-        group["scandirection"],
-        group["scannumber"],
-        group["intensity"],
-    ):
-        if scan_dir == "rev":
-            data_rev = np.genfromtxt(
-                file,
-                delimiter="\t",
-                skip_header=1,
-                skip_footer=num_cols,
-                usecols=(2, 4),
-            )
-            data_rev = data_rev[~np.isnan(data_rev).any(axis=1)]
-            if intensity == 0:
-                ax.plot(
-                    data_rev[:, 0],
-                    data_rev[:, 1],
-                    label=f"{scannumber} {scan_dir} dark",
-                    c="black",
-                    lw=1.5,
-                    ls="--",
-                )
-            else:
-                ax.plot(
-                    data_rev[:, 0],
-                    data_rev[:, 1],
-                    label=f"{scannumber} {scan_dir}",
-                    c=cmap(scannumber * c_div),
-                    lw=1.5,
-                    ls="--",
-                )
-            if (jsc_sign > 0) & (voc_sign > 0):
-                fwd_j.append(data_rev[-1, 1])
-                rev_j.append(data_rev[0, 1])
-            elif (jsc_sign > 0) & (voc_sign < 0):
-                fwd_j.append(data_rev[0, 1])
-                rev_j.append(data_rev[-1, 1])
-            elif (jsc_sign < 0) & (voc_sign > 0):
-                fwd_j.append(data_rev[-1, 1])
-                rev_j.append(data_rev[0, 1])
-            elif (jsc_sign < 0) & (voc_sign < 0):
-                fwd_j.append(data_rev[0, 1])
-                rev_j.append(data_rev[-1, 1])
-        elif scan_dir == "fwd":
-            data_fwd = np.genfromtxt(
-                file,
-                delimiter="\t",
-                skip_header=1,
-                skip_footer=num_cols,
-                usecols=(2, 4),
-            )
-            data_fwd = data_fwd[~np.isnan(data_fwd).any(axis=1)]
-            if intensity == 0:
-                ax.plot(
-                    data_fwd[:, 0],
-                    data_fwd[:, 1],
-                    label=f"{scannumber} {scan_dir} dark",
-                    c="black",
-                    lw=1.5,
-                )
-            else:
-                ax.plot(
-                    data_fwd[:, 0],
-                    data_fwd[:, 1],
-                    label=f"{scannumber} {scan_dir}",
-                    c=cmap(scannumber * c_div),
-                    lw=1.5,
-                )
-            if (jsc_sign > 0) & (voc_sign > 0):
-                fwd_j.append(data_fwd[0, 1])
-                rev_j.append(data_fwd[-1, 1])
-            elif (jsc_sign > 0) & (voc_sign < 0):
-                fwd_j.append(data_fwd[-1, 1])
-                rev_j.append(data_fwd[0, 1])
-            elif (jsc_sign < 0) & (voc_sign > 0):
-                fwd_j.append(data_fwd[0, 1])
-                rev_j.append(data_fwd[-1, 1])
-            elif (jsc_sign < 0) & (voc_sign < 0):
-                fwd_j.append(data_fwd[-1, 1])
-                rev_j.append(data_fwd[0, 1])
-
-        j += 1
-
-    # Format the axes
-    ax.tick_params(direction="in", top=True, right=True, labelsize="small")
-    ax.set_xlabel("Applied bias (V)", fontsize="small")
-    ax.set_ylabel("J (mA/cm^2)", fontsize="small")
-    # if voc_sign > 0:
-    #     ax.set_xlim([np.min(data_fwd[:, 0]), max_group_voc + 0.2])
-    # else:
-    #     ax.set_xlim([-max_group_voc - 0.2, np.max(data_fwd[:, 0])])
-    # if jsc_sign > 0:
-    #     ax.set_ylim([-np.max(np.absolute(rev_j)), max_group_jsc * 1.2])
-    # else:
-    #     ax.set_ylim([-max_group_jsc * 1.2, np.max(np.absolute(rev_j))])
-
-    # Adjust plot width to add legend outside plot area
-    box = ax.get_position()
-    ax.set_position([box.x0, box.y0, box.width * 0.85, box.height])
-    legend_handles, legend_labels = ax.get_legend_handles_labels()
-    lgd = ax.legend(
-        legend_handles,
-        legend_labels,
-        loc="upper left",
-        title="scannumber #",
-        bbox_to_anchor=(1, 1),
-        fontsize="small",
-    )
-
-    # Format the figure layout, save to file, and add to ppt
-    image_png = os.path.join(image_folder, f"jv_all_{label}.png")
-    image_svg = os.path.join(image_folder, f"jv_all_{label}.svg")
-    fig.savefig(image_png, bbox_extra_artists=(lgd,), bbox_inches="tight")
-    fig.savefig(image_svg, bbox_extra_artists=(lgd,), bbox_inches="tight")
-    data_slide.shapes.add_picture(
-        image_png, left=lefts[str(i % 4)], top=tops[str(i % 4)], height=height
-    )
-
-    # Close figure
-    plt.close(fig)
-
-    i += 1
-
+plot_all_jvs(all_jvs_groups)
 
 # Save powerpoint presentation
 logger.info("Saving powerpoint presentation...")
-prs.save(str(log_filepath).replace(".log", "_summary.pptx"))
+prs.save(f"{log_filepath}".replace(".log", "_summary.pptx"))
 
 logger.info("Analysis complete!")
