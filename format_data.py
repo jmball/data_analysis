@@ -615,10 +615,14 @@ def format_folder(data_folder):
 
             # get variable name and value
             exp_setup_dict = setup_dict[experiment_timestamp]
-            variable_name = exp_setup_dict.columns[-1]
+            variable_names = exp_setup_dict.columns[7:]
             _pixel_setup = exp_setup_dict[exp_setup_dict["mux_index"] == int(pixel)]
             _pixel_setup_sub = _pixel_setup[_pixel_setup["system_label"] == position]
-            variable_value = _pixel_setup_sub.loc[label][variable_name]
+            variable_values = [
+                _pixel_setup_sub.loc[label][var] for var in variable_names
+            ]
+            variable_name = ", ".join(variable_names)
+            variable_value = ", ".join(variable_values)
 
             # get metadata
             metadata = [
