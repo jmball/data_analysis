@@ -94,6 +94,33 @@ def get_scan_dir_and_rsfwd(voc, ascending, r_diff, ncompliance):
     return scan_dir, rsfwd
 
 
+def get_setup_dict(data_folder):
+    """Generate dictionary of setup .csv files.
+
+    Parameters
+    ----------
+    data_folder : pathlib.Path
+        Folder containing measurement data.
+
+    Returns
+    -------
+    setup_dict : dict
+        Dictionary of setup info.
+    """
+    # get dictionary of pixel setup files, with one item per file
+    setup_files = list(data_folder.glob("**/IV_pixel_setup_*.csv"))
+    setup_dict = {}
+    for file in setup_files:
+        experiment_timestamp = str(file)[-14:-4]
+        pixel_setup = pd.read_csv(
+            data_folder.joinpath(f"IV_pixel_setup_{experiment_timestamp}.csv"),
+            index_col="user_label",
+        )
+        setup_dict[experiment_timestamp] = pixel_setup
+
+    return setup_dict
+
+
 def generate_processed_folder(data_folder, tsv_files, processed_folder):
     """Generate folder containing processed data.
 
@@ -123,16 +150,7 @@ def generate_processed_folder(data_folder, tsv_files, processed_folder):
         ]
     ]
 
-    # get dictionary of pixel setup files, with one item per file
-    setup_files = list(data_folder.glob("**/IV_pixel_setup_*.csv"))
-    setup_dict = {}
-    for file in setup_files:
-        experiment_timestamp = str(file)[-14:-4]
-        pixel_setup = pd.read_csv(
-            data_folder.joinpath(f"IV_pixel_setup_{experiment_timestamp}.csv"),
-            index_col="user_label",
-        )
-        setup_dict[experiment_timestamp] = pixel_setup
+    setup_dict = get_setup_dict(data_folder)
 
     # set a single file modification time for all files so sorting by modification time
     # later doesn't lead to falsely inferring the files were measured in modification
@@ -291,9 +309,7 @@ def format_folder(data_folder):
             # date modified info is available so use it to infer measurement order
             processed_files.sort(key=os.path.getmtime)
 
-        # get run arguments dictionary
-        # run_args_file = data_folder.joinpath(f"run_args_{experiment_timestamp}.yaml")
-        # run_args = load_run_args(run_args_file)
+        # get run arguments dictionary of dictionaries
         run_args_files = list(data_folder.glob("**/run_args_*.yaml"))
         run_args_dict = {}
         for file in run_args_files:
@@ -302,6 +318,9 @@ def format_folder(data_folder):
                 data_folder.joinpath(f"run_args_{experiment_timestamp}.yaml")
             )
             run_args_dict[experiment_timestamp] = run_args
+
+        # get device data dictionary of dictionaries
+        setup_dict = get_setup_dict(data_folder)
 
         # infer experiment and device details from paths
         experiment_title = str(data_folder.parts[-1])
@@ -595,6 +614,13 @@ def format_folder(data_folder):
                 write_data = []
                 logger.error(file, len(rel_time), len(r_diff))
 
+            # get variable name and value
+            exp_setup_dict = setup_dict[experiment_timestamp]
+            variable_name = exp_setup_dict.columns[-1]
+            _pixel_setup = exp_setup_dict[exp_setup_dict["mux_index"] == int(pixel)]
+            _pixel_setup_sub = _pixel_setup[_pixel_setup["system_label"] == position]
+            variable_value = _pixel_setup_sub.loc[label][variable_name]
+
             # get metadata
             metadata = [
                 ["Jsc (mA/cm^2)", jsc],
@@ -615,8 +641,8 @@ def format_folder(data_folder):
                 ["Time_SS (s)", time_ss],
                 ["Keithley IDN", "-"],
                 ["Label", label],
-                ["Variable", "-"],
-                ["Value", 0],
+                ["Variable", variable_name],
+                ["Value", variable_value],
                 ["Substrate", "-"],
                 ["HTM", "-"],
                 ["Perovskite", "-"],
