@@ -254,10 +254,8 @@ def format_folder(data_folder):
     formatted_folder : pahtlib.Path
         Folder containing formatted data. This will be a new folder path if the data in
         the initial folder required formatting.
-    experiment_timestamp : int
-        Unix time stamp at experiment start time.
-    username : str
-        User name.
+    experiment_timestamps : list of int
+        Unix time stamps at experiment start times.
     experiment_title :str
         Experiment title.
     """
@@ -312,19 +310,20 @@ def format_folder(data_folder):
         # get run arguments dictionary of dictionaries
         run_args_files = list(data_folder.glob("**/run_args_*.yaml"))
         run_args_dict = {}
+        experiment_timestamps = []
         for file in run_args_files:
-            experiment_timestamp = str(file)[-15:-5]
+            _experiment_timestamp = str(file)[-15:-5]
             run_args = load_run_args(
-                data_folder.joinpath(f"run_args_{experiment_timestamp}.yaml")
+                data_folder.joinpath(f"run_args_{_experiment_timestamp}.yaml")
             )
-            run_args_dict[experiment_timestamp] = run_args
+            run_args_dict[_experiment_timestamp] = run_args
+            experiment_timestamps.append(int(_experiment_timestamp))
 
         # get device data dictionary of dictionaries
         setup_dict = get_setup_dict(data_folder)
 
         # infer experiment and device details from paths
         experiment_title = str(data_folder.parts[-1])
-        username = str(data_folder.parts[-2])
 
         pixels_dict = {}
         logger.info("Formatting Python data files...")
@@ -682,14 +681,23 @@ def format_folder(data_folder):
         logger.info("Data probably created with the LabVIEW measurement program.")
 
         experiment_title = str(data_folder.parts[-1])
-        experiment_timestamp = experiment_title.split("_")[1]
-        username = str(data_folder.parts[-2])
 
         extensions = [".voc", ".liv1", ".liv2", ".mpp", ".jsc", ".div1", ".div2"]
         data_files = [f for f in data_folder.iterdir() if f.suffix in extensions]
 
+        experiment_timestamps = []
         for file in data_files:
-            extension = file.suffix
+            try:
+                _, position, label, pixel, rest = str(file.parts[-1]).split("_")
+            except ValueError:
+                # the device label probably wasn't provided
+                _, position, pixel, rest = str(file.parts[-1]).split("_")
+                label = position
+            experiment_timestamp, extension = rest.split(".")
+
+            if experiment_timestamp not in experiment_timestamps:
+                experiment_timestamps.append(experiment_timestamp)
+
             new_file = analysis_folder.joinpath(file.parts[-1])
             if extension in [".liv1", ".liv2", ".div1", ".div2"]:
                 with open(file, "r", encoding="utf-8") as open_file:
@@ -741,7 +749,7 @@ def format_folder(data_folder):
             else:
                 shutil.copy2(file, new_file)
 
-    return analysis_folder, int(experiment_timestamp), username, experiment_title
+    return analysis_folder, experiment_timestamps, experiment_title
 
 
 if __name__ == "__main__":

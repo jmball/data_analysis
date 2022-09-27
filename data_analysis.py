@@ -1086,8 +1086,7 @@ FIX_YMIN_0 = True if args.fix_ymin_0 == "yes" else False
 # format data if from Python program
 (
     analysis_folder,
-    experiment_time,
-    username,
+    experiment_timestamps,
     experiment_title,
 ) = format_folder(pathlib.Path(args.folder))
 
@@ -1117,8 +1116,11 @@ else:
     os.makedirs(image_folder)
 
 
-# Get username, date, and title from folderpath for the ppt title page
-exp_date = time.strftime("%A %B %d %Y", time.localtime(experiment_time))
+# Get date for the ppt title page
+exp_dates = [
+    time.strftime("%A %B %d %Y, %H:%M", time.localtime(_time))
+    for _time in experiment_timestamps
+]
 
 # Set physical constants
 kB = scipy.constants.Boltzmann
@@ -1148,17 +1150,20 @@ all_data.columns = names
 NUM_COLS = len(all_data.columns)
 
 
-# Create a powerpoint presentation to add figures to.
+# Create a powerpoint presentation to add figures to
 logger.info("Creating powerpoint file...")
 prs = Presentation()
 
-# Add title page with experiment title, date, and username.
+# Add title page with experiment title and date
 title_slide_layout = prs.slide_layouts[0]
 slide = prs.slides.add_slide(title_slide_layout)
 title = slide.shapes.title
 subtitle = slide.placeholders[1]
 title.text = experiment_title
-subtitle.text = f"{exp_date}\n{username}"
+exp_date_str = f"{exp_dates[0]}"
+for exp_date in exp_dates[1:]:
+    exp_date_str += f"\n{exp_date}"
+subtitle.text = exp_date_str
 
 # Add blank slide for table of experimental details.
 blank_slide_layout = prs.slide_layouts[6]
