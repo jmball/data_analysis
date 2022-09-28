@@ -624,6 +624,9 @@ def format_folder(data_folder):
             variable_values = [
                 str(_pixel_setup_sub.loc[label][var]) for var in variable_names
             ]
+            # replace nan's with dummy string to prevent indexing errors in seaborn
+            # countplots
+            variable_values = ["_" if var == 'nan' else var for var in variable_values]
             variable_name = ", ".join(variable_names)
             variable_value = ", ".join(variable_values)
 
