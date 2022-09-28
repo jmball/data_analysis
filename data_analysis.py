@@ -1077,11 +1077,10 @@ def plot_all_jvs(all_jv_groups):
 
 # parse args
 args = parse()
+FIX_YMIN_0 = True if args.fix_ymin_0 == "yes" else False
 
 # create a logger
 logger = create_logger(args.folder, args.debug)
-
-FIX_YMIN_0 = True if args.fix_ymin_0 == "yes" else False
 
 # format data if from Python program
 (
@@ -1149,12 +1148,11 @@ all_data.columns = names
 
 NUM_COLS = len(all_data.columns)
 
-
 # Create a powerpoint presentation to add figures to
 logger.info("Creating powerpoint file...")
 prs = Presentation()
 
-# Add title page with experiment title and date
+# add title page with experiment title and date
 title_slide_layout = prs.slide_layouts[0]
 slide = prs.slides.add_slide(title_slide_layout)
 title = slide.shapes.title
@@ -1165,9 +1163,7 @@ for exp_date in exp_dates[1:]:
     exp_date_str += f"\n{exp_date}"
 subtitle.text = exp_date_str
 
-# Add blank slide for notes slide and table of experimental details.
-blank_slide_layout = prs.slide_layouts[6]
-
+# add title slide for notes
 notes_slide = prs.slides.add_slide(prs.slide_layouts[5])
 notes_title = notes_slide.shapes.title
 notes_title.text = "Notes"
@@ -1197,7 +1193,8 @@ to make sure these scans do reach steady-state to have confidence that the outpu
 values are not transient.
 """
 
-table_slide = prs.slides.add_slide(blank_slide_layout)
+# add blank slide for table of experimental details
+table_slide = prs.slides.add_slide(prs.slide_layouts[6])
 table_shapes = table_slide.shapes
 table_rows = len(all_data["label"].unique()) + 1
 table_cols = 6
@@ -1270,6 +1267,23 @@ for table_row, (_, row) in enumerate(table_info.iterrows()):
     table.cell(table_row, 4).text = f"{row.etm}"
     table.cell(table_row, 5).text = f"{row.metal}"
 
+# set table font size (from https://stackoverflow.com/a/40346775)
+def iter_cells(table):
+    """Create table cell generator.
+
+    Parameters
+    ----------
+    table : pptx table
+        Python-pptx table object.
+    """
+    for row in table.rows:
+        for cell in row.cells:
+            yield cell
+
+for cell in iter_cells(table):
+    for paragraph in cell.text_frame.paragraphs:
+        for run in paragraph.runs:
+            run.font.size = Pt(12)
 
 # further filter data based on jv scans
 filtered_data = sorted_data[
