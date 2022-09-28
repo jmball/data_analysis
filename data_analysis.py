@@ -1165,8 +1165,38 @@ for exp_date in exp_dates[1:]:
     exp_date_str += f"\n{exp_date}"
 subtitle.text = exp_date_str
 
-# Add blank slide for table of experimental details.
+# Add blank slide for notes slide and table of experimental details.
 blank_slide_layout = prs.slide_layouts[6]
+
+notes_slide = prs.slides.add_slide(prs.slide_layouts[5])
+notes_title = notes_slide.shapes.title
+notes_title.text = "Notes"
+notes_textbox = notes_slide.shapes.add_textbox(
+    Inches(0.5), Inches(1), prs.slide_width - Inches(1), prs.slide_height - Inches(2)
+)
+notes_textframe = notes_textbox.text_frame
+notes_textframe.text = """
+Some filtering of the data used is attempted to exclude measurements from boxplots
+where devices weren't working or not contacted properly. The criteria for exclusion
+of a device are when any of the following are true:
+- the quasi-FF estimated from steady-state scans is outside the range 0-1 (a solar cell
+must be in this range)
+- the J_SC estimated from steady-state scans > 50 mA/cm^2 (the maximum for solar cell
+with bandgap > ~1.0 eV)
+- the FF estimated from J-V characteristics is outside the range 0-1 on either scan
+direction
+- the J_SC from J-V characteristics is < 0.01 mA/cm^2 on either scan direction (occurs
+when a device behaves as a resistor or was not contacted properly)
+
+A summary of how many devices were included in the boxplots is given in the Yield
+plots. From this, one can infer how many devices were excluded.
+
+The parameter value returned from a steady-state measurement (parameter output as a
+function of time) is the mean value of the final 10 measurement points. It's important
+to make sure these scans do reach steady-state to have confidence that the output
+values are not transient.
+"""
+
 table_slide = prs.slides.add_slide(blank_slide_layout)
 table_shapes = table_slide.shapes
 table_rows = len(all_data["label"].unique()) + 1
@@ -1418,7 +1448,11 @@ for (svoc_name, svoc_group), (sjsc_name, sjsc_group), (spo_name, spo_group) in z
 
 for jv_name, jv_group in area_grouped_filtered_data:
     boxplot_index, data_slide = plot_boxplots(
-        jv_group, jv_params, "J-V", "value", f"{jv_name[0]}, {jv_name[1]} cm^2",
+        jv_group,
+        jv_params,
+        "J-V",
+        "value",
+        f"{jv_name[0]}, {jv_name[1]} cm^2",
     )
     plt.close("all")
 
