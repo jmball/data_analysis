@@ -1340,12 +1340,14 @@ grouped_filtered_data = filtered_data.groupby(["variable"])
 grouped_spo_data = spo_data.groupby(["variable"])
 grouped_sjsc_data = sjsc_data.groupby(["variable"])
 grouped_svoc_data = svoc_data.groupby(["variable"])
-for svoc_name, svoc_group in grouped_svoc_data:
+for (svoc_name, svoc_group), (sjsc_name, sjsc_group), (spo_name, spo_group) in zip(
+    grouped_svoc_data, grouped_sjsc_data, grouped_spo_data
+):
     boxplot_index, data_slide = plot_boxplots(
         svoc_group, svoc_params, "SSVoc", "value", svoc_name
     )
     plt.close("all")
-for sjsc_name, sjsc_group in grouped_sjsc_data:
+
     boxplot_index, data_slide = plot_boxplots(
         sjsc_group,
         sjsc_params,
@@ -1356,7 +1358,7 @@ for sjsc_name, sjsc_group in grouped_sjsc_data:
         data_slide=data_slide,
     )
     plt.close("all")
-for spo_name, spo_group in grouped_spo_data:
+
     boxplot_index, data_slide = plot_boxplots(
         spo_group,
         spo_params,
@@ -1367,9 +1369,56 @@ for spo_name, spo_group in grouped_spo_data:
         data_slide=data_slide,
     )
     plt.close("all")
+
 for jv_name, jv_group in grouped_filtered_data:
     boxplot_index, data_slide = plot_boxplots(
         jv_group, jv_params, "J-V", "value", jv_name
+    )
+    plt.close("all")
+
+# create boxplots for jv and spo parameters grouped by variable value and area
+area_grouped_filtered_data = filtered_data.groupby(["variable", "area"])
+area_grouped_spo_data = spo_data.groupby(["variable", "area"])
+area_grouped_sjsc_data = sjsc_data.groupby(["variable", "area"])
+area_grouped_svoc_data = svoc_data.groupby(["variable", "area"])
+
+for (svoc_name, svoc_group), (sjsc_name, sjsc_group), (spo_name, spo_group) in zip(
+    area_grouped_svoc_data, area_grouped_sjsc_data, area_grouped_spo_data
+):
+    boxplot_index, data_slide = plot_boxplots(
+        svoc_group,
+        svoc_params,
+        "SSVoc",
+        "value",
+        f"{svoc_name[0]}, {svoc_name[1]} cm^2",
+    )
+    plt.close("all")
+
+    boxplot_index, data_slide = plot_boxplots(
+        sjsc_group,
+        sjsc_params,
+        "SSJsc",
+        "value",
+        f"{sjsc_name[0]}, {sjsc_name[1]} cm^2",
+        start_index=boxplot_index,
+        data_slide=data_slide,
+    )
+    plt.close("all")
+
+    boxplot_index, data_slide = plot_boxplots(
+        spo_group,
+        spo_params,
+        "SSPO",
+        "value",
+        f"{spo_name[0]}, {spo_name[1]} cm^2",
+        start_index=boxplot_index,
+        data_slide=data_slide,
+    )
+    plt.close("all")
+
+for jv_name, jv_group in area_grouped_filtered_data:
+    boxplot_index, data_slide = plot_boxplots(
+        jv_group, jv_params, "J-V", "value", f"{jv_name[0]}, {jv_name[1]} cm^2",
     )
     plt.close("all")
 
