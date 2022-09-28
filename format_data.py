@@ -174,6 +174,9 @@ def generate_processed_folder(data_folder, tsv_files, processed_folder):
 
         # load and process raw data
         _data = np.genfromtxt(file, delimiter="\t", skip_header=1)
+        if len(np.shape(_data)) == 1:
+            # data only has one row so need to reshape as 2D array
+            _data = np.reshape(_data, (1, 4))
         _voltage = _data[:, 0]
         _current = _data[:, 1]
         _time = _data[:, 2]
