@@ -453,106 +453,107 @@ def plot_stabilisation(dataframe, title: str, short_name: str):
         with contextlib.suppress(Exception):
             data = data[~np.isnan(data).any(axis=1)]
 
-        try:
-            if short_name == "sjsc":
-                fig, ax1 = plt.subplots(
-                    1, 1, figsize=(A4_WIDTH / 2, A4_HEIGHT / 2), dpi=300
-                )
-                ax1.set_title(
-                    f"{label}, pixel {pixel}, {variable}, {value}",
-                    fontdict={"fontsize": "small"},
-                )
-                ax1.scatter(
-                    data[:, 0], np.absolute(data[:, 1]), color="black", s=5, label="Jsc"
-                )
-                ax1.set_ylabel("|Jsc| (mA/cm^2)", fontsize="small")
-                ax1.set_ylim(0, np.max(np.absolute(data[:, 1])) * 1.1)
-                ax1.set_xlabel("Time (s)", fontsize="small")
-                ax1.set_xlim(0)
-                ax1.tick_params(direction="in", top=True, right=True, labelsize="small")
-                fig.tight_layout()
-            elif short_name == "spo":
-                fig, axs = plt.subplots(
-                    3, 1, sharex=True, figsize=(A4_WIDTH / 2, A4_HEIGHT / 2), dpi=300
-                )
-                ax1, ax2, ax3 = axs
-                fig.subplots_adjust(hspace=0)
-                ax1.set_title(
-                    f"{label}, pixel {pixel}, {variable}, {value}, vspo = {vspo} V",
-                    fontdict={"fontsize": "small"},
-                )
-                ax1.scatter(
-                    data[:, 0], np.absolute(data[:, 2]), color="black", s=5, label="J"
-                )
-                ax1.set_ylabel("|J| (mA/cm^2)", fontsize="small")
-                ax1.set_ylim(0, np.max(np.absolute(data[:, 2])) * 1.1)
-                ax3.tick_params(direction="in", top=True, right=True)
-                ax2.scatter(
-                    data[:, 0],
-                    np.absolute(data[:, 3]),
-                    color="red",
-                    s=5,
-                    marker="s",
-                    label="pce",
-                )
-                ax2.set_ylabel("PCE (%)", fontsize="small")
-                ax2.set_ylim(0, np.max(np.absolute(data[:, 3])) * 1.1)
-                ax2.tick_params(direction="in", top=True, right=True)
-                ax3.scatter(
-                    data[:, 0],
-                    np.absolute(data[:, 1]),
-                    color="blue",
-                    s=5,
-                    marker="s",
-                    label="v",
-                )
-                ax3.set_ylabel("V (V)", fontsize="small")
-                ax3.set_ylim(0, np.max(np.absolute(data[:, 1])) * 1.1)
-                ax3.set_xlabel("Time (s)", fontsize="small")
-                ax3.tick_params(direction="in", top=True, right=True, labelsize="small")
-                fig.align_ylabels([ax1, ax2, ax3])
-            elif short_name == "svoc":
-                fig, ax1 = plt.subplots(
-                    1, 1, figsize=(A4_WIDTH / 2, A4_HEIGHT / 2), dpi=300
-                )
-                ax1.set_title(
-                    f"{label}, pixel {pixel}, {variable}, {value}",
-                    fontdict={"fontsize": "small"},
-                )
-                ax1.scatter(
-                    data[:, 0], np.absolute(data[:, 1]), color="black", s=5, label="Voc"
-                )
-                ax1.set_ylabel("|Voc| (V)", fontsize="small")
-                ax1.set_ylim(0, np.max(np.absolute(data[:, 1])) * 1.1)
-                ax1.set_xlabel("Time (s)", fontsize="small")
-                ax1.set_xlim(0)
-                ax1.tick_params(direction="in", top=True, right=True, labelsize="small")
-                fig.tight_layout()
-            else:
-                fig, ax1 = plt.subplots(
-                    1, 1, figsize=(A4_WIDTH / 2, A4_HEIGHT / 2), dpi=300
-                )
+        if data.ndim == 1:
+            # convert single row array to 2d array to avoid index error later
+            data = np.expand_dims(data, axis=0)
 
-            # Format the figure layout, save to file, and add to ppt
-            image_png = os.path.join(
-                image_folder, f"{short_name}_{label}_{variable}_{value}_{pixel}.png"
+        if short_name == "sjsc":
+            fig, ax1 = plt.subplots(
+                1, 1, figsize=(A4_WIDTH / 2, A4_HEIGHT / 2), dpi=300
             )
-            image_svg = os.path.join(
-                image_folder, f"{short_name}_{label}_{variable}_{value}_{pixel}.svg"
+            ax1.set_title(
+                f"{label}, pixel {pixel}, {variable}, {value}",
+                fontdict={"fontsize": "small"},
             )
-            fig.savefig(image_png)
-            fig.savefig(image_svg)
-            data_slide.shapes.add_picture(
-                image_png,
-                left=LEFTS[str(index % 4)],
-                top=TOPS[str(index % 4)],
-                height=IMAGE_HEIGHT,
+            ax1.scatter(
+                data[:, 0], np.absolute(data[:, 1]), color="black", s=5, label="Jsc"
+            )
+            ax1.set_ylabel("|Jsc| (mA/cm^2)", fontsize="small")
+            ax1.set_ylim(0, np.max(np.absolute(data[:, 1])) * 1.1)
+            ax1.set_xlabel("Time (s)", fontsize="small")
+            ax1.set_xlim(0)
+            ax1.tick_params(direction="in", top=True, right=True, labelsize="small")
+            fig.tight_layout()
+        elif short_name == "spo":
+            fig, axs = plt.subplots(
+                3, 1, sharex=True, figsize=(A4_WIDTH / 2, A4_HEIGHT / 2), dpi=300
+            )
+            ax1, ax2, ax3 = axs
+            fig.subplots_adjust(hspace=0)
+            ax1.set_title(
+                f"{label}, pixel {pixel}, {variable}, {value}, vspo = {vspo} V",
+                fontdict={"fontsize": "small"},
+            )
+            ax1.scatter(
+                data[:, 0], np.absolute(data[:, 2]), color="black", s=5, label="J"
+            )
+            ax1.set_ylabel("|J| (mA/cm^2)", fontsize="small")
+            ax1.set_ylim(0, np.max(np.absolute(data[:, 2])) * 1.1)
+            ax3.tick_params(direction="in", top=True, right=True)
+            ax2.scatter(
+                data[:, 0],
+                np.absolute(data[:, 3]),
+                color="red",
+                s=5,
+                marker="s",
+                label="pce",
+            )
+            ax2.set_ylabel("PCE (%)", fontsize="small")
+            ax2.set_ylim(0, np.max(np.absolute(data[:, 3])) * 1.1)
+            ax2.tick_params(direction="in", top=True, right=True)
+            ax3.scatter(
+                data[:, 0],
+                np.absolute(data[:, 1]),
+                color="blue",
+                s=5,
+                marker="s",
+                label="v",
+            )
+            ax3.set_ylabel("V (V)", fontsize="small")
+            ax3.set_ylim(0, np.max(np.absolute(data[:, 1])) * 1.1)
+            ax3.set_xlabel("Time (s)", fontsize="small")
+            ax3.tick_params(direction="in", top=True, right=True, labelsize="small")
+            fig.align_ylabels([ax1, ax2, ax3])
+        elif short_name == "svoc":
+            fig, ax1 = plt.subplots(
+                1, 1, figsize=(A4_WIDTH / 2, A4_HEIGHT / 2), dpi=300
+            )
+            ax1.set_title(
+                f"{label}, pixel {pixel}, {variable}, {value}",
+                fontdict={"fontsize": "small"},
+            )
+            ax1.scatter(
+                data[:, 0], np.absolute(data[:, 1]), color="black", s=5, label="Voc"
+            )
+            ax1.set_ylabel("|Voc| (V)", fontsize="small")
+            ax1.set_ylim(0, np.max(np.absolute(data[:, 1])) * 1.1)
+            ax1.set_xlabel("Time (s)", fontsize="small")
+            ax1.set_xlim(0)
+            ax1.tick_params(direction="in", top=True, right=True, labelsize="small")
+            fig.tight_layout()
+        else:
+            fig, ax1 = plt.subplots(
+                1, 1, figsize=(A4_WIDTH / 2, A4_HEIGHT / 2), dpi=300
             )
 
-            # Close figure
-            plt.close(fig)
-        except IndexError:
-            logger.error("indexerror")
+        # Format the figure layout, save to file, and add to ppt
+        image_png = os.path.join(
+            image_folder, f"{short_name}_{label}_{variable}_{value}_{pixel}.png"
+        )
+        image_svg = os.path.join(
+            image_folder, f"{short_name}_{label}_{variable}_{value}_{pixel}.svg"
+        )
+        fig.savefig(image_png)
+        fig.savefig(image_svg)
+        data_slide.shapes.add_picture(
+            image_png,
+            left=LEFTS[str(index % 4)],
+            top=TOPS[str(index % 4)],
+            height=IMAGE_HEIGHT,
+        )
+
+        # Close figure
+        plt.close(fig)
 
         index += 1
 
