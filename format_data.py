@@ -413,7 +413,6 @@ def format_folder(data_folder):
             area = f"{meas_current[0] / (meas_j[0] / 1000):.4f}"
 
             liv = "liv" in ext1
-            print(liv)
             if "vt" in ext1:
                 # override r_diff length if suns_voc performed using mask
                 r_diff = np.zeros(len(data[:, 0][mask]))
@@ -503,7 +502,6 @@ def format_folder(data_folder):
                     quasiff = 0
                 lvext = "jsc"
             elif div or liv:
-                print("dark iv or light iv")
                 lvext = ext1
 
                 r_diff = np.gradient(meas_voltage, meas_current)
