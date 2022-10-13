@@ -301,7 +301,7 @@ def plot_boxplots(
             )
         except ValueError as err:
             logger.error(hue, grouping, param, kind)
-            logger.error(dataframe["jsc"])
+            logger.error(dataframe[param])
             raise ValueError from err
         sns.swarmplot(
             x=dataframe[grouping],
@@ -1280,6 +1280,7 @@ def iter_cells(table):
     for row in table.rows:
         for cell in row.cells:
             yield cell
+
 
 for cell in iter_cells(table):
     for paragraph in cell.text_frame.paragraphs:

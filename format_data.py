@@ -113,8 +113,7 @@ def get_setup_dict(data_folder):
     for file in setup_files:
         experiment_timestamp = str(file)[-14:-4]
         pixel_setup = pd.read_csv(
-            data_folder.joinpath(f"IV_pixel_setup_{experiment_timestamp}.csv"),
-            index_col="user_label",
+            data_folder.joinpath(f"IV_pixel_setup_{experiment_timestamp}.csv")
         )
         setup_dict[experiment_timestamp] = pixel_setup
 
@@ -161,16 +160,27 @@ def generate_processed_folder(data_folder, tsv_files, processed_folder):
         logger.info(file)
         # look up area from pixel setup based on analysing the file name
         file_str = str(file.relative_to(data_folder))
-        _slot, _label, _device, _timestamp_ext = file_str.split("_")
+        try:
+            _slot, _, _device, _timestamp_ext = file_str.split("_")
+        except ValueError:
+            # the device label probably wasn't provided
+            _slot, _device, _timestamp_ext = file_str.split("_")
         _timestamp, _ext, _ = _timestamp_ext.split(".")
         _pixel = int(_device.replace("device", ""))
         _area_type = "dark_area" if "div" in _ext else "area"
-        _pixel_setup = setup_dict[_timestamp][
-            setup_dict[_timestamp]["mux_index"] == _pixel
-        ]
-        _area = _pixel_setup[_pixel_setup["system_label"] == _slot].loc[_label][
-            _area_type
-        ]
+        try:
+            _pixel_setup = setup_dict[_timestamp][
+                setup_dict[_timestamp]["pad"] == _pixel
+            ]
+            _area = _pixel_setup[_pixel_setup["slot"] == _slot].iloc[0][_area_type]
+        except KeyError:
+            # probably old style pixel setup file
+            _pixel_setup = setup_dict[_timestamp][
+                setup_dict[_timestamp]["mux_index"] == _pixel
+            ]
+            _area = _pixel_setup[_pixel_setup["system_label"] == _slot].iloc[0][
+                _area_type
+            ]
 
         # load and process raw data
         _data = np.genfromtxt(file, delimiter="\t", skip_header=1)
@@ -334,13 +344,28 @@ def format_folder(data_folder):
             logger.info(file)
 
             try:
-                _, position, label, pixel, rest = str(file.parts[-1]).split("_")
+                _, slot, label, pixel, rest = str(file.parts[-1]).split("_")
             except ValueError:
                 # the device label probably wasn't provided
-                _, position, pixel, rest = str(file.parts[-1]).split("_")
-                label = position
+                _, slot, pixel, rest = str(file.parts[-1]).split("_")
+                label = slot
             experiment_timestamp, ext1, ext2 = rest.split(".")
             pixel = pixel.strip("device")
+
+            area_type = "dark_area" if "div" in ext1 else "area"
+            try:
+                pixel_setup = setup_dict[experiment_timestamp][
+                    setup_dict[experiment_timestamp]["pad"] == int(pixel)
+                ]
+                area = pixel_setup[pixel_setup["slot"] == slot].iloc[0][area_type]
+            except KeyError:
+                # probably old style pixel setup file
+                pixel_setup = setup_dict[experiment_timestamp][
+                    setup_dict[experiment_timestamp]["mux_index"] == int(pixel)
+                ]
+                area = pixel_setup[pixel_setup["system_label"] == slot].iloc[0][
+                    area_type
+                ]
 
             key = f"{label}_{pixel}"
             # add dict key for new pixel to store derived parameters from other files
@@ -397,7 +422,7 @@ def format_folder(data_folder):
 
             # measurements not in compliance
             try:
-                ncompliance = [not (int(bin(int(s))[-4])) for s in status]
+                ncompliance = [not (int(format(int(s), "024b")[-4])) for s in status]
             except IndexError:
                 ncompliance = [True for _ in status]
                 logger.warning(
@@ -406,11 +431,6 @@ def format_folder(data_folder):
                 )
 
             timestamp = int(experiment_timestamp) + time_data[0]
-
-            # calculating the area as I / J can lead to occasional floating point
-            # rounding area, which causes errors when grouping by area so use string
-            # conversion instead
-            area = f"{meas_current[0] / (meas_j[0] / 1000):.4f}"
 
             liv = "liv" in ext1
             if "vt" in ext1:
@@ -633,11 +653,25 @@ def format_folder(data_folder):
 
             # get variable name and value
             exp_setup_dict = setup_dict[experiment_timestamp]
-            variable_names = exp_setup_dict.columns[7:]
-            _pixel_setup = exp_setup_dict[exp_setup_dict["mux_index"] == int(pixel)]
-            _pixel_setup_sub = _pixel_setup[_pixel_setup["system_label"] == position]
+            try:
+                fixed_names = [
+                    "slot",
+                    "user_label",
+                    "layout",
+                    "area",
+                    "dark_area",
+                    "pad",
+                ]
+                variable_names = [
+                    name for name in exp_setup_dict.columns if name not in fixed_names
+                ]
+                pixel_setup_sub = pixel_setup[pixel_setup["slot"] == slot]
+            except KeyError:
+                # probably old style setup file
+                variable_names = exp_setup_dict.columns[7:]
+                pixel_setup_sub = pixel_setup[pixel_setup["system_label"] == slot]
             variable_values = [
-                str(_pixel_setup_sub.loc[label][var]) for var in variable_names
+                str(pixel_setup_sub.iloc[0][var]) for var in variable_names
             ]
             # replace nan's with dummy string to prevent indexing errors in seaborn
             # countplots
@@ -673,7 +707,7 @@ def format_folder(data_folder):
                 ["ETM", "-"],
                 ["Metal", "-"],
                 ["Pixel", pixel],
-                ["Position", position],
+                ["Position", slot],
                 ["Intensity (# suns)", intensity],
                 ["Assumed Eg (eV)", "-"],
                 ["Solar sim", "-"],
@@ -713,11 +747,11 @@ def format_folder(data_folder):
         experiment_timestamps = []
         for file in data_files:
             try:
-                _, position, label, pixel, rest = str(file.parts[-1]).split("_")
+                _, slot, label, pixel, rest = str(file.parts[-1]).split("_")
             except ValueError:
                 # the device label probably wasn't provided
-                _, position, pixel, rest = str(file.parts[-1]).split("_")
-                label = position
+                _, slot, pixel, rest = str(file.parts[-1]).split("_")
+                label = slot
             experiment_timestamp, extension = rest.split(".")
 
             if experiment_timestamp not in experiment_timestamps:
@@ -746,7 +780,7 @@ def format_folder(data_folder):
                 status = data[:, -2].astype(int)
 
                 # measurements not in compliance
-                ncompliance = [not (int(bin(int(s))[-4])) for s in status]
+                ncompliance = [not (int(format(int(s), "024b")[-4])) for s in status]
 
                 # get details from footer
                 scan_dir_ix = None
