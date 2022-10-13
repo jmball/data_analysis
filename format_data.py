@@ -413,6 +413,7 @@ def format_folder(data_folder):
             area = f"{meas_current[0] / (meas_j[0] / 1000):.4f}"
 
             liv = "liv" in ext1
+            print(liv)
             if "vt" in ext1:
                 # override r_diff length if suns_voc performed using mask
                 r_diff = np.zeros(len(data[:, 0][mask]))
@@ -460,7 +461,14 @@ def format_folder(data_folder):
                 quasipce = pcess
                 lvext = "mpp"
                 pixels_dict[key]["quasipce"] = quasipce
-                pcess_pcejv = pixels_dict[key]["quasipce"] / pixels_dict[key]["ivpce"]
+
+                if isinstance(pixels_dict[key]["ivpce"], str):
+                    # ivpce is "nan" so can't determine ratio
+                    pcess_pcejv = "nan"
+                else:
+                    pcess_pcejv = (
+                        pixels_dict[key]["quasipce"] / pixels_dict[key]["ivpce"]
+                    )
             elif "it" in ext1:
                 r_diff = np.zeros(len(data[:, 0]))
                 jsc = 0
@@ -495,6 +503,7 @@ def format_folder(data_folder):
                     quasiff = 0
                 lvext = "jsc"
             elif div or liv:
+                print("dark iv or light iv")
                 lvext = ext1
 
                 r_diff = np.gradient(meas_voltage, meas_current)
@@ -580,13 +589,21 @@ def format_folder(data_folder):
                 except NameError:
                     rsvoc = "nan"
 
-                if liv and (not isinstance(pce, str)):
-                    if ("liv" in ext1) and ("ivpce" not in pixels_dict[key]):
+                if liv:
+                    if "ivpce" not in pixels_dict[key]:
                         # reset stored jv pce if first liv, for PCE_SS/PCE_JV calc
                         pixels_dict[key]["ivpce"] = pce
-                    elif pce > pixels_dict[key]["ivpce"]:
-                        # update if new pce is higher
+                    elif isinstance(pce, str):
+                        # don't need to change anything if subsequent pces are "nan"
+                        pass
+                    elif isinstance(pixels_dict[key]["ivpce"], str):
+                        # always replace value if only seen "nan"'s so far
                         pixels_dict[key]["ivpce"] = pce
+                    elif pce > pixels_dict[key]["ivpce"]:
+                        # new pce is a number, update if new pce is higher than stored
+                        pixels_dict[key]["ivpce"] = pce
+                    else:
+                        pass
             else:
                 raise ValueError(f"Invalid file extension: {ext1}.")
 
@@ -626,7 +643,7 @@ def format_folder(data_folder):
             ]
             # replace nan's with dummy string to prevent indexing errors in seaborn
             # countplots
-            variable_values = ["_" if var == 'nan' else var for var in variable_values]
+            variable_values = ["_" if var == "nan" else var for var in variable_values]
             variable_name = ", ".join(variable_names)
             variable_value = ", ".join(variable_values)
 
