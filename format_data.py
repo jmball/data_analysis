@@ -668,7 +668,7 @@ def format_folder(data_folder):
                 pixel_setup_sub = pixel_setup[pixel_setup["slot"] == slot]
             except KeyError:
                 # probably old style setup file
-                variable_names = exp_setup_dict.columns[7:]
+                variable_names = exp_setup_dict.columns[8:]
                 pixel_setup_sub = pixel_setup[pixel_setup["system_label"] == slot]
             variable_values = [
                 str(pixel_setup_sub.iloc[0][var]) for var in variable_names
