@@ -1060,6 +1060,8 @@ def plot_all_jvs(all_jv_groups):
             fontsize="small",
         )
 
+        fig.tight_layout()
+
         # Format the figure layout, save to file, and add to ppt
         image_png = os.path.join(image_folder, f"jv_all_{label}.png")
         image_svg = os.path.join(image_folder, f"jv_all_{label}.svg")
