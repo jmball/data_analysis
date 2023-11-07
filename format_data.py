@@ -42,7 +42,12 @@ def sort_python_measurement_files(folder):
         Sorted folder of data.
     """
     # get the set of unique relative file names excluding extensions
-    unique_device_file_names = {f.parts[-1].split(".")[0] for f in folder.iterdir()}
+    # unique_device_file_names = {f.parts[-1].split(".")[0] for f in folder.iterdir()}
+    # this method protects against dots in parts of the file name that aren't part of
+    # the extension
+    unique_device_file_names = {
+        ".".join(f.parts[-1].split(".")[:-2]) for f in folder.iterdir()
+    }
 
     # loop over this set of unique devices and sort by measurement order
     search_exts = [".vt.tsv", ".div*.tsv", ".liv*.tsv", ".mppt.tsv", ".it.tsv"]
@@ -340,8 +345,8 @@ def format_folder(data_folder):
 
         pixels_dict = {}
         logger.info("Formatting Python data files...")
-        for file in processed_files:
-            logger.info(file)
+        for ix, file in enumerate(processed_files):
+            logger.info(f"Processed file {ix}: {file}")
 
             try:
                 _, slot, label, pixel, rest = str(file.parts[-1]).split("_")
